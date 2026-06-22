@@ -14,12 +14,11 @@
         .spotify-bg { background-color: #1DB954; }
         .spotify-bg:hover { background-color: #1ed760; }
         .card-bg { background-color: #181818; border: 1px solid #282828; }
-        .card-bg:active { background-color: #282828; transform: scale(0.98); }
+        .card-bg:active { background-color: #242424; }
     </style>
 </head>
-<body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none">
+<body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none relative">
 
-    <!-- Header -->
     <header class="w-full max-w-4xl flex justify-between items-center py-4 border-b border-zinc-800 mb-6">
         <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
         <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
@@ -27,16 +26,13 @@
         </button>
     </header>
 
-    <!-- Main Content -->
     <main class="w-full max-w-4xl flex flex-col items-center">
         
-        <!-- Error Banner -->
         <div id="error-banner" class="w-full card-bg border-red-900 rounded-xl p-4 mb-6 text-red-400 text-sm hidden">
             <p class="font-bold mb-1">Application Error:</p>
             <p id="error-message"></p>
         </div>
 
-        <!-- Landing View -->
         <div id="landing-view" class="text-center my-16 max-w-md hidden">
             <h2 class="text-3xl font-extrabold mb-4">Track your streams.</h2>
             <p class="text-zinc-400 mb-8 text-sm">An installable dashboard to view your recent streaming history and listening metrics instantly.</p>
@@ -45,10 +41,8 @@
             </button>
         </div>
 
-        <!-- Dashboard View -->
         <div id="dashboard-view" class="w-full hidden">
             
-            <!-- Smart Features & Metrics Grid -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
                     <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Current Vibe</p>
@@ -69,14 +63,52 @@
             </div>
 
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold tracking-wide">Recent History <span class="text-xs font-normal text-zinc-500">(Tap to play)</span></h2>
+                <h2 class="text-lg font-semibold tracking-wide">Recent History <span class="text-xs font-normal text-zinc-500">(Tap card for info, icon to play)</span></h2>
                 <span id="track-count" class="text-xs text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full">0 tracks</span>
             </div>
             
-            <!-- Tracks -->
             <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
         </div>
     </main>
+
+    <div id="info-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
+        <div class="card-bg w-full max-w-sm rounded-2xl p-6 relative transform scale-95 transition-transform duration-200">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1">&times;</button>
+            
+            <div class="flex items-center space-x-4 mb-6">
+                <img id="modal-img" class="w-16 h-16 rounded-lg object-cover shadow-md">
+                <div class="min-w-0">
+                    <h3 id="modal-title" class="font-bold text-white text-base truncate">Song Title</h3>
+                    <p id="modal-artist" class="text-sm text-zinc-400 truncate">Artist Name</p>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-sm">
+                <div class="border-b border-zinc-800 pb-2">
+                    <p class="text-xs text-zinc-500 font-medium uppercase">Artist Genres</p>
+                    <p id="modal-genres" class="text-white font-medium mt-0.5">None available</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-xs text-zinc-500 font-medium uppercase">Tempo</p>
+                        <p id="modal-tempo" class="text-white font-medium mt-0.5">0 BPM</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-zinc-500 font-medium uppercase">Danceability</p>
+                        <p id="modal-dance" class="text-white font-medium mt-0.5">0%</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-zinc-500 font-medium uppercase">Acousticness</p>
+                        <p id="modal-acoustic" class="text-white font-medium mt-0.5">0%</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-zinc-500 font-medium uppercase">Instrumental</p>
+                        <p id="modal-instrumental" class="text-white font-medium mt-0.5">0%</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         const CLIENT_ID = '997e4ee06e624c7aaf77a45f30e74394'; 
@@ -91,10 +123,26 @@
         const errorBanner = document.getElementById('error-banner');
         const errorMessage = document.getElementById('error-message');
 
+        // Stats Elements
         const statVibe = document.getElementById('stat-vibe');
         const statGenres = document.getElementById('stat-genres');
         const statEnergy = document.getElementById('stat-energy');
         const statBaked = document.getElementById('stat-baked');
+
+        // Modal Elements
+        const infoModal = document.getElementById('info-modal');
+        const modalImg = document.getElementById('modal-img');
+        const modalTitle = document.getElementById('modal-title');
+        const modalArtist = document.getElementById('modal-artist');
+        const modalGenres = document.getElementById('modal-genres');
+        const modalTempo = document.getElementById('modal-tempo');
+        const modalDance = document.getElementById('modal-dance');
+        const modalAcoustic = document.getElementById('modal-acoustic');
+        const modalInstrumental = document.getElementById('modal-instrumental');
+
+        // Data cache pools for looking track info up dynamically inside the modal UI
+        let globalTrackFeatures = {};
+        let globalArtistGenres = {};
 
         function showUIError(msg) {
             errorMessage.innerText = msg;
@@ -166,24 +214,20 @@
                     return;
                 }
 
-                // Batch lookup artist details to get genres
                 const artistIds = [...new Set(items.map(item => item.track.artists[0].id))].slice(0, 50).join(',');
-                let artistGenreMap = {};
                 if (artistIds) {
                     const artistsResponse = await fetch(`https://api.spotify.com/v1/artists?ids=${artistIds}`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
                     if (artistsResponse.ok) {
-                        const artistsData = await artistsResponse.getJson ? await artistsResponse.json() : await artistsResponse.json();
+                        const artistsData = await artistsResponse.json();
                         (artistsData.artists || []).forEach(artist => {
-                            if(artist) artistGenreMap[artist.id] = artist.genres;
+                            if(artist) globalArtistGenres[artist.id] = artist.genres;
                         });
                     }
                 }
 
-                // Batch lookup audio features
                 const trackIds = items.map(item => item.track.id).join(',');
-                let trackFeaturesMap = {};
                 if (trackIds) {
                     const featuresResponse = await fetch(`https://api.spotify.com/v1/audio-features?ids=${trackIds}`, {
                         headers: { 'Authorization': 'Bearer ' + token }
@@ -191,12 +235,12 @@
                     if (featuresResponse.ok) {
                         const featuresData = await featuresResponse.json();
                         (featuresData.audio_features || []).forEach(feat => {
-                            if (feat) trackFeaturesMap[feat.id] = feat;
+                            if (feat) globalTrackFeatures[feat.id] = feat;
                         });
                     }
                 }
 
-                processSmartMetrics(items, artistGenreMap, trackFeaturesMap);
+                processSmartMetrics(items);
 
             } catch (err) { 
                 showUIError(err.message);
@@ -204,7 +248,7 @@
             }
         }
 
-        function processSmartMetrics(items, artistGenreMap, trackFeaturesMap) {
+        function processSmartMetrics(items) {
             tracksList.innerHTML = '';
             trackCount.innerText = `${items.length} tracks`;
 
@@ -217,9 +261,9 @@
             items.forEach(item => {
                 if (!item.track) return;
                 const track = item.track;
-                const features = trackFeaturesMap[track.id];
+                const features = globalTrackFeatures[track.id];
                 const mainArtistId = track.artists[0]?.id;
-                const genres = artistGenreMap[mainArtistId] || [];
+                const genres = globalArtistGenres[mainArtistId] || [];
 
                 genres.forEach(g => { genreCounts[g] = (genreCounts[g] || 0) + 1; });
 
@@ -241,19 +285,30 @@
                 const trackName = track.name;
                 const artistName = track.artists.map(a => a.name).join(', ');
                 const playedAt = new Date(item.played_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const trackUrl = track.external_urls?.spotify;
+
+                // Escape titles safely for JS strings
+                const cleanTrackTitle = trackName.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                const cleanArtistTitle = artistName.replace(/'/g, "\\'").replace(/"/g, '\\"');
 
                 const card = document.createElement('div');
-                card.className = 'card-bg rounded-xl p-3 flex items-center space-x-3 cursor-pointer transition duration-150 transform active:scale-95';
-                if (trackUrl) card.setAttribute('onclick', `window.open('${trackUrl}', '_blank')`);
+                card.className = 'card-bg rounded-xl p-3 flex items-center justify-between cursor-pointer transition duration-150 transform active:scale-[0.99]';
+                
+                // Action 1: Tapping layout card triggers data modal context
+                card.setAttribute('onclick', `openModal('${track.id}', '${mainArtistId}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}')`);
+                
                 card.innerHTML = `
-                    <img src="${albumArt}" class="w-12 h-12 rounded-lg shadow-md object-cover flex-shrink-0">
-                    <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-white truncate text-sm">${trackName}</p>
-                        <p class="text-xs text-zinc-400 truncate">${artistName}</p>
+                    <div class="flex items-center space-x-3 min-w-0 flex-1">
+                        <img src="${albumArt}" class="w-12 h-12 rounded-lg shadow-md object-cover flex-shrink-0">
+                        <div class="min-w-0 flex-1">
+                            <p class="font-semibold text-white truncate text-sm">${trackName}</p>
+                            <p class="text-xs text-zinc-400 truncate">${artistName}</p>
+                        </div>
                     </div>
-                    <div class="text-right text-xs text-zinc-500 flex-shrink-0">
-                        <p class="font-medium text-zinc-400">${playedAt}</p>
+                    <div class="flex items-center space-x-3 flex-shrink-0 ml-2">
+                        <span class="text-xs text-zinc-500 font-medium">${playedAt}</span>
+                        <button onclick="playTrackNative(event, '${track.id}')" class="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-90 text-white flex items-center justify-center transition">
+                            <svg class="w-3 h-3 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </button>
                     </div>
                 `;
                 tracksList.appendChild(card);
@@ -272,16 +327,61 @@
             else if (avgEnergy > 0.6 && avgValence <= 0.4) vibe = "Intense / Dark";
             else if (avgEnergy <= 0.4 && avgValence > 0.5) vibe = "Chill / Melodic";
             else if (avgEnergy <= 0.4 && avgValence <= 0.4) vibe = "Somber / Moody";
-            else if (avgEnergy > 0.4 && avgEnergy <= 0.7 && avgValence > 0.4) vibe = "Smooth Floating";
+            else if (avgEnergy > 0.4 && avgCamp <= 0.7 && avgValence > 0.4) vibe = "Smooth Floating";
             statVibe.innerText = vibe;
 
             const hazePercentage = items.length > 0 ? Math.round((hazyTracksCount / items.length) * 100) : 0;
             let highStatus = "Clear Headed ☕";
             if (hazePercentage > 70) highStatus = "In Orbit 🪐";
             else if (hazePercentage > 45) highStatus = "Baked 🌲";
-            else if (hazePercentage > 20) highStatus = "Zoned Out 😶‍orig;";
+            else if (hazePercentage > 20) highStatus = "Zoned Out 😶‍morn;";
             else if (hazePercentage > 5) highStatus = "Chilled 🌊";
             statBaked.innerText = highStatus;
+        }
+
+        // Direct Core Native Deep-linking Handler
+        function playTrackNative(event, trackId) {
+            event.stopPropagation(); // Prevents layout modal selector frame from misfiring simultaneously
+            
+            // Native Client URI Intent Scheme Protocol
+            window.location.href = `spotify:track:${trackId}`;
+        }
+
+        // Interaction Modal Layout Renderer
+        function openModal(trackId, artistId, title, artist, artUrl) {
+            const features = globalTrackFeatures[trackId];
+            const genres = globalArtistGenres[artistId] || [];
+
+            modalImg.src = artUrl;
+            modalTitle.innerText = title;
+            modalArtist.innerText = artist;
+            modalGenres.innerText = genres.length > 0 ? genres.slice(0, 3).join(', ') : 'Eclectic / Unknown';
+
+            if (features) {
+                modalTempo.innerText = `${Math.round(features.tempo)} BPM`;
+                modalDance.innerText = `${Math.round(features.danceability * 100)}%`;
+                modalAcoustic.innerText = `${Math.round(features.acousticness * 100)}%`;
+                modalInstrumental.innerText = `${Math.round(features.instrumentalness * 100)}%`;
+            } else {
+                modalTempo.innerText = 'N/A';
+                modalDance.innerText = 'N/A';
+                modalAcoustic.innerText = 'N/A';
+                modalInstrumental.innerText = 'N/A';
+            }
+
+            infoModal.classList.remove('hidden');
+            setTimeout(() => {
+                infoModal.classList.remove('opacity-0');
+                infoModal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            infoModal.classList.add('opacity-0');
+            infoModal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                infoModal.classList.add('hidden');
+            }, 200);
         }
 
         function renderEmptyState() {
