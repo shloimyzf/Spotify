@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamPulse - Spotify History</title>
-    <!-- Tailwind CSS for modern styling -->
+    <title>StreamPulse</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #121212; color: #e5e7eb; }
@@ -14,162 +16,175 @@
         .card-bg { background-color: #181818; border: 1px solid #282828; }
     </style>
 </head>
-<body class="font-sans min-h-screen flex flex-col items-center justify-start p-6">
+<body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none">
 
     <!-- Header -->
-    <header class="w-full max-w-4xl flex justify-between items-center py-6 border-b border-zinc-800 mb-8">
-        <h1 class="text-2xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
-        <button id="auth-btn" class="spotify-bg text-black font-semibold px-6 py-2 rounded-full transition hidden">
-            Connect Spotify
-        </button>
-        <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-6 py-2 rounded-full transition hidden">
+    <header class="w-full max-w-4xl flex justify-between items-center py-4 border-b border-zinc-800 mb-6">
+        <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
+        <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
             Disconnect
         </button>
     </header>
 
-    <!-- Main Content Area -->
+    <!-- Main Content -->
     <main class="w-full max-w-4xl flex flex-col items-center">
-        <!-- Landing State -->
-        <div id="landing-view" class="text-center my-12 max-w-md hidden">
-            <h2 class="text-3xl font-extrabold mb-4">See what you've been spinning.</h2>
-            <p class="text-zinc-400 mb-8">Connect your account securely to view your live, 50 most recently played tracks directly from Spotify.</p>
-            <button onclick="loginWithSpotifyClick()" class="spotify-bg text-black font-bold text-lg px-8 py-4 rounded-full shadow-lg transition">
-                Connect with Spotify
+        
+        <!-- Landing View -->
+        <div id="landing-view" class="text-center my-16 max-w-md hidden">
+            <h2 class="text-3xl font-extrabold mb-4">Track your streams.</h2>
+            <p class="text-zinc-400 mb-8 text-sm">An installable dashboard to view your recent streaming history and listening metrics instantly.</p>
+            <button onclick="loginWithSpotifyClick()" class="spotify-bg text-black font-bold text-base px-8 py-4 rounded-full shadow-lg transition">
+                Connect Spotify Account
             </button>
         </div>
 
         <!-- Dashboard View -->
         <div id="dashboard-view" class="w-full hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-semibold tracking-wide">Recently Played Tracks</h2>
-                <span id="track-count" class="text-sm text-zinc-400 bg-zinc-800 px-3 py-1 rounded-full">0 tracks</span>
+            
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-3 gap-3 mb-6">
+                <div class="card-bg rounded-xl p-4 text-center">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Time Streamed</p>
+                    <p id="stat-time" class="text-xl font-bold spotify-green">0m</p>
+                </div>
+                <div class="card-bg rounded-xl p-4 text-center">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Artists Explored</p>
+                    <p id="stat-artists" class="text-xl font-bold text-white">0</p>
+                </div>
+                <div class="card-bg rounded-xl p-4 text-center">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Heavy Rotation</p>
+                    <p id="stat-top-artist" class="text-sm font-bold text-white truncate">None</p>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold tracking-wide">Recent History</h2>
+                <span id="track-count" class="text-xs text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full">0 tracks</span>
             </div>
             
-            <!-- Tracks Container -->
-            <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Tracks inject here dynamically -->
-            </div>
+            <!-- Tracks -->
+            <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
         </div>
     </main>
 
     <script>
-        // CONFIGURATION
-        const CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID'; // <-- REPLACE THIS WITH YOUR CLIENT ID
+        // INSERT YOUR VALID CLIENT ID HERE
+        const CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID'; 
         const REDIRECT_URI = window.location.origin + window.location.pathname; 
         const SCOPE = 'user-read-recently-played';
 
-        // UI Element Selectors
-        const authBtn = document.getElementById('auth-btn');
         const logoutBtn = document.getElementById('logout-btn');
         const landingView = document.getElementById('landing-view');
         const dashboardView = document.getElementById('dashboard-view');
         const tracksList = document.getElementById('tracks-list');
         const trackCount = document.getElementById('track-count');
 
-        // APP INITIALIZATION
+        // Stats elements
+        const statTime = document.getElementById('stat-time');
+        const statArtists = document.getElementById('stat-artists');
+        const statTopArtist = document.getElementById('stat-top-artist');
+
         async function init() {
+            // Register PWA Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log("SW registration failed", err));
+            }
+
             const args = new URLSearchParams(window.location.search);
             const code = args.get('code');
 
             if (code) {
-                // We have a code back from Spotify, exchange it for an access token
                 const token = await exchangeCodeForToken(code);
                 if (token) {
                     localStorage.setItem('access_token', token);
-                    // Clear code parameter from browser address bar cleanly
                     window.history.replaceState({}, document.title, window.location.pathname);
                 }
             }
 
             const token = localStorage.getItem('access_token');
-            if (token) {
-                showDashboard(token);
-            } else {
-                showLanding();
-            }
+            if (token) { showDashboard(token); } else { showLanding(); }
         }
 
         function showLanding() {
             landingView.classList.remove('hidden');
-            authBtn.classList.remove('hidden');
             dashboardView.classList.add('hidden');
             logoutBtn.classList.add('hidden');
         }
 
         async function showDashboard(token) {
             landingView.classList.add('hidden');
-            authBtn.classList.add('hidden');
             dashboardView.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
             
-            logoutBtn.onclick = () => {
-                localStorage.clear();
-                showLanding();
-            };
-
+            logoutBtn.onclick = () => { localStorage.clear(); showLanding(); };
             await fetchRecentlyPlayed(token);
         }
 
-        // SPOTIFY API CALLS
         async function fetchRecentlyPlayed(token) {
             try {
                 const response = await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=50', {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
-
-                if (response.status === 401) {
-                    // Token expired or invalid, reset login state
-                    localStorage.clear();
-                    showLanding();
-                    return;
-                }
-
+                if (response.status === 401) { localStorage.clear(); showLanding(); return; }
                 const data = await response.json();
-                renderTracks(data.items);
-            } catch (err) {
-                console.error("Error pulling history:", err);
-            }
+                processMetricsAndRender(data.items);
+            } catch (err) { console.error(err); }
         }
 
-        function renderTracks(items) {
+        function processMetricsAndRender(items) {
             tracksList.innerHTML = '';
             trackCount.innerText = `${items.length} tracks`;
 
             if(items.length === 0) {
-                tracksList.innerHTML = `<p class="text-zinc-500">No history found or no music listened to recently.</p>`;
+                tracksList.innerHTML = `<p class="text-zinc-500 text-sm">No recent tracks found.</p>`;
                 return;
             }
 
+            let totalMs = 0;
+            let artistCounts = {};
+
             items.forEach(item => {
                 const track = item.track;
+                totalMs += track.duration_ms;
+                
+                track.artists.forEach(art => {
+                    artistCounts[art.name] = (artistCounts[art.name] || 0) + 1;
+                });
+
                 const albumArt = track.album.images[1]?.url || 'https://via.placeholder.com/150';
                 const trackName = track.name;
                 const artistName = track.artists.map(a => a.name).join(', ');
                 const playedAt = new Date(item.played_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const playedDate = new Date(item.played_at).toLocaleDateString([], { month: 'short', day: 'numeric' });
 
                 const card = document.createElement('div');
-                card.className = 'card-bg rounded-lg p-4 flex items-center space-x-4 hover:bg-zinc-800 transition duration-200';
+                card.className = 'card-bg rounded-xl p-3 flex items-center space-x-3';
                 card.innerHTML = `
-                    <img src="${albumArt}" alt="${trackName}" class="w-16 h-16 rounded shadow-md object-cover flex-shrink-0">
+                    <img src="${albumArt}" class="w-12 h-12 rounded-lg shadow-md object-cover flex-shrink-0">
                     <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-white truncate text-base">${trackName}</p>
-                        <p class="text-sm text-zinc-400 truncate">${artistName}</p>
+                        <p class="font-semibold text-white truncate text-sm">${trackName}</p>
+                        <p class="text-xs text-zinc-400 truncate">${artistName}</p>
                     </div>
                     <div class="text-right text-xs text-zinc-500 flex-shrink-0">
                         <p class="font-medium text-zinc-400">${playedAt}</p>
-                        <p>${playedDate}</p>
                     </div>
                 `;
                 tracksList.appendChild(card);
             });
+
+            // Calculate Metrics
+            const totalMinutes = Math.round(totalMs / 60000);
+            const uniqueArtistsCount = Object.keys(artistCounts).length;
+            const topArtist = Object.keys(artistCounts).reduce((a, b) => artistCounts[a] > artistCounts[b] ? a : b, "None");
+
+            // Update UI Stats
+            statTime.innerText = `${totalMinutes}m`;
+            statArtists.innerText = uniqueArtistsCount;
+            statTopArtist.innerText = topArtist;
         }
 
-        // SECURE PKCE AUTHENTICATION LOGIC FLOW
         async function loginWithSpotifyClick() {
             const verifier = generateRandomString(128);
             localStorage.setItem('code_verifier', verifier);
-
             const challenge = await generateCodeChallenge(verifier);
             
             const params = new URLSearchParams({
@@ -180,13 +195,11 @@
                 code_challenge_method: 'S256',
                 code_challenge: challenge
             });
-
             window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
         }
 
         async function exchangeCodeForToken(code) {
             const codeVerifier = localStorage.getItem('code_verifier');
-
             const params = new URLSearchParams({
                 client_id: CLIENT_ID,
                 grant_type: 'authorization_code',
@@ -200,12 +213,10 @@
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: params
             });
-
             const data = await response.json();
             return data.access_token;
         }
 
-        // CRYPTOGRAPHY UTILITIES FOR CODE CHALLENGE
         function generateRandomString(length) {
             const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
             const values = crypto.getRandomValues(new Uint8Array(length));
@@ -220,7 +231,6 @@
                 .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
         }
 
-        // Launch app on load
         init();
     </script>
 </body>
