@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamPulse</title>
+    <title>StreamPulse Pro</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#121212">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,6 +14,7 @@
         .spotify-bg { background-color: #1DB954; }
         .spotify-bg:hover { background-color: #1ed760; }
         .card-bg { background-color: #181818; border: 1px solid #282828; }
+        .card-bg:active { background-color: #282828; transform: scale(0.98); }
     </style>
 </head>
 <body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none">
@@ -27,7 +28,7 @@
     </header>
 
     <!-- Main Content -->
-    <main class="w-full max-w-4xl flex flex-col items-center">
+    <main class="w-full max-w-4xl flex flex-col items-center w-full">
         
         <!-- Landing View -->
         <div id="landing-view" class="text-center my-16 max-w-md hidden">
@@ -41,24 +42,29 @@
         <!-- Dashboard View -->
         <div id="dashboard-view" class="w-full hidden">
             
-            <!-- Metrics Grid -->
-            <div class="grid grid-cols-3 gap-3 mb-6">
-                <div class="card-bg rounded-xl p-4 text-center">
-                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Time Streamed</p>
-                    <p id="stat-time" class="text-xl font-bold spotify-green">0m</p>
+            <!-- Smart Features & Metrics Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Current Vibe</p>
+                    <p id="stat-vibe" class="text-sm font-bold spotify-green">Analyzing...</p>
                 </div>
-                <div class="card-bg rounded-xl p-4 text-center">
-                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Artists Explored</p>
-                    <p id="stat-artists" class="text-xl font-bold text-white">0</p>
+                <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Top Genres</p>
+                    <p id="stat-genres" class="text-xs font-bold text-white line-clamp-2">Analyzing...</p>
                 </div>
-                <div class="card-bg rounded-xl p-4 text-center">
-                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Heavy Rotation</p>
-                    <p id="stat-top-artist" class="text-sm font-bold text-white truncate">None</p>
+                <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Energy Level</p>
+                    <p id="stat-energy" class="text-sm font-bold text-white">Calculating...</p>
+                </div>
+                <!-- FUN FEATURE: The Haze Factor Detector -->
+                <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Haze Factor</p>
+                    <p id="stat-baked" class="text-sm font-bold text-amber-500">Scanning...</p>
                 </div>
             </div>
 
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold tracking-wide">Recent History</h2>
+                <h2 class="text-lg font-semibold tracking-wide">Recent History <span class="text-xs font-normal text-zinc-500">(Tap to play)</span></h2>
                 <span id="track-count" class="text-xs text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full">0 tracks</span>
             </div>
             
@@ -68,7 +74,7 @@
     </main>
 
     <script>
-        // INSERT YOUR VALID CLIENT ID HERE
+        // Your Verified Client ID
         const CLIENT_ID = '997e4ee06e624c7aaf77a45f30e74394'; 
         const REDIRECT_URI = window.location.origin + window.location.pathname; 
         const SCOPE = 'user-read-recently-played';
@@ -79,13 +85,13 @@
         const tracksList = document.getElementById('tracks-list');
         const trackCount = document.getElementById('track-count');
 
-        // Stats elements
-        const statTime = document.getElementById('stat-time');
-        const statArtists = document.getElementById('stat-artists');
-        const statTopArtist = document.getElementById('stat-top-artist');
+        // Smart Stats Elements
+        const statVibe = document.getElementById('stat-vibe');
+        const statGenres = document.getElementById('stat-genres');
+        const statEnergy = document.getElementById('stat-energy');
+        const statBaked = document.getElementById('stat-baked');
 
         async function init() {
-            // Register PWA Service Worker
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js').catch(err => console.log("SW registration failed", err));
             }
@@ -117,47 +123,94 @@
             logoutBtn.classList.remove('hidden');
             
             logoutBtn.onclick = () => { localStorage.clear(); showLanding(); };
-            await fetchRecentlyPlayed(token);
+            await fetchDashboardData(token);
         }
 
-        async function fetchRecentlyPlayed(token) {
+        async function fetchDashboardData(token) {
             try {
                 const response = await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=50', {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 if (response.status === 401) { localStorage.clear(); showLanding(); return; }
                 const data = await response.json();
-                processMetricsAndRender(data.items);
-            } catch (err) { console.error(err); }
+                const items = data.items;
+
+                if (items.length === 0) {
+                    renderEmptyState();
+                    return;
+                }
+
+                // Batch lookup artist details to get genres
+                const artistIds = [...new Set(items.map(item => item.track.artists[0].id))].slice(0, 50).join(',');
+                const artistsResponse = await fetch(`https://api.spotify.com/v1/artists?ids=${artistIds}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const artistsData = await artistsResponse.json();
+                const artistGenreMap = {};
+                artistsData.artists.forEach(artist => {
+                    artistGenreMap[artist.id] = artist.genres;
+                });
+
+                // Batch lookup audio features (vibe, metrics)
+                const trackIds = items.map(item => item.track.id).join(',');
+                const featuresResponse = await fetch(`https://api.spotify.com/v1/audio-features?ids=${trackIds}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const featuresData = await featuresResponse.json();
+                const trackFeaturesMap = {};
+                featuresData.audio_features.forEach(feat => {
+                    if (feat) trackFeaturesMap[feat.id] = feat;
+                });
+
+                processSmartMetrics(items, artistGenreMap, trackFeaturesMap);
+
+            } catch (err) { 
+                console.error("Error building dashboard indices:", err); 
+            }
         }
 
-        function processMetricsAndRender(items) {
+        function processSmartMetrics(items, artistGenreMap, trackFeaturesMap) {
             tracksList.innerHTML = '';
             trackCount.innerText = `${items.length} tracks`;
 
-            if(items.length === 0) {
-                tracksList.innerHTML = `<p class="text-zinc-500 text-sm">No recent tracks found.</p>`;
-                return;
-            }
-
-            let totalMs = 0;
-            let artistCounts = {};
+            let totalEnergy = 0;
+            let totalValence = 0; 
+            let genreCounts = {};
+            let validFeatureCount = 0;
+            let hazyTracksCount = 0;
 
             items.forEach(item => {
                 const track = item.track;
-                totalMs += track.duration_ms;
-                
-                track.artists.forEach(art => {
-                    artistCounts[art.name] = (artistCounts[art.name] || 0) + 1;
-                });
+                const features = trackFeaturesMap[track.id];
+                const mainArtistId = track.artists[0].id;
+                const genres = artistGenreMap[mainArtistId] || [];
+
+                genres.forEach(g => { genreCounts[g] = (genreCounts[g] || 0) + 1; });
+
+                if (features) {
+                    totalEnergy += features.energy;
+                    totalValence += features.valence;
+                    validFeatureCount++;
+
+                    // HAZE MATRIX ALGORITHM: Detects tracks that are notably slow, heavily acoustic, electronic ambient, or spacey/repetitive
+                    const isSlow = features.tempo < 110;
+                    const isAcousticOrDreamy = features.acousticness > 0.4 || features.instrumentalness > 0.15;
+                    const isLowEnergy = features.energy < 0.52;
+                    
+                    if (isLowEnergy && (isSlow || isAcousticOrDreamy)) {
+                        hazyTracksCount++;
+                    }
+                }
 
                 const albumArt = track.album.images[1]?.url || 'https://via.placeholder.com/150';
                 const trackName = track.name;
                 const artistName = track.artists.map(a => a.name).join(', ');
                 const playedAt = new Date(item.played_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const trackUrl = track.external_urls.spotify;
 
                 const card = document.createElement('div');
-                card.className = 'card-bg rounded-xl p-3 flex items-center space-x-3';
+                card.className = 'card-bg rounded-xl p-3 flex items-center space-x-3 cursor-pointer transition duration-150 transform active:scale-95';
+                card.setAttribute('onclick', `window.open('${trackUrl}', '_blank')`);
                 card.innerHTML = `
                     <img src="${albumArt}" class="w-12 h-12 rounded-lg shadow-md object-cover flex-shrink-0">
                     <div class="flex-1 min-w-0">
@@ -171,15 +224,45 @@
                 tracksList.appendChild(card);
             });
 
-            // Calculate Metrics
-            const totalMinutes = Math.round(totalMs / 60000);
-            const uniqueArtistsCount = Object.keys(artistCounts).length;
-            const topArtist = Object.keys(artistCounts).reduce((a, b) => artistCounts[a] > artistCounts[b] ? a : b, "None");
+            const avgEnergy = validFeatureCount > 0 ? (totalEnergy / validFeatureCount) : 0;
+            const avgValence = validFeatureCount > 0 ? (totalValence / validFeatureCount) : 0;
 
-            // Update UI Stats
-            statTime.innerText = `${totalMinutes}m`;
-            statArtists.innerText = uniqueArtistsCount;
-            statTopArtist.innerText = topArtist;
+            const sortedGenres = Object.keys(genreCounts).sort((a,b) => genreCounts[b] - genreCounts[a]).slice(0, 3);
+            statGenres.innerText = sortedGenres.length > 0 ? sortedGenres.join(', ') : 'Eclectic';
+
+            statEnergy.innerText = `${Math.round(avgEnergy * 100)}%`;
+
+            // Smart Vibe Text
+            let vibe = "Balanced";
+            if (avgEnergy > 0.7 && avgValence > 0.6) vibe = "Hype / Electric";
+            else if (avgEnergy > 0.6 && avgValence <= 0.4) vibe = "Intense / Dark";
+            else if (avgEnergy <= 0.4 && avgValence > 0.5) vibe = "Chill / Melodic";
+            else if (avgEnergy <= 0.4 && avgValence <= 0.4) vibe = "Somber / Moody";
+            else if (avgEnergy > 0.4 && avgEnergy <= 0.7 && avgValence > 0.4) vibe = "Smooth Floating";
+            statVibe.innerText = vibe;
+
+            // HAZE FACTOR OUTPUT DETERMINATION
+            const hazePercentage = items.length > 0 ? Math.round((hazyTracksCount / items.length) * 100) : 0;
+            let highStatus = "Clear Headed ☕";
+            
+            if (hazePercentage > 70) {
+                highStatus = "In Orbit 🪐";
+            } else if (hazePercentage > 45) {
+                highStatus = "Baked 🌲";
+            } else if (hazePercentage > 20) {
+                highStatus = "Zoned Out 😶‍elong;";
+            } else if (hazePercentage > 5) {
+                highStatus = "Chilled 🌊";
+            }
+            statBaked.innerText = highStatus;
+        }
+
+        function renderEmptyState() {
+            tracksList.innerHTML = `<p class="text-zinc-500 text-sm">No recent tracks found.</p>`;
+            statVibe.innerText = "Unknown";
+            statGenres.innerText = "None";
+            statEnergy.innerText = "0%";
+            statBaked.innerText = "Unknown";
         }
 
         async function loginWithSpotifyClick() {
