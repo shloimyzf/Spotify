@@ -1,17 +1,22 @@
 {
-  "name": "StreamPulse Mobile",
   "short_name": "StreamPulse",
-  "start_url": "index.html",
-  "display": "standalone",
-  "background_color": "#121212",
-  "theme-color": "#121212",
-  "orientation": "portrait",
+  "name": "StreamPulse Pro Dashboard",
+  "description": "Analyze your recent Spotify streaming metrics and construct dynamic vibes.",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/174/174872.png",
+      "src": "https://img.icons8.com/color/192/000000/spotify.png",
       "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any maskable"
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/000000/spotify.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
-  ]
+  ],
+  "start_url": "./index.html",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "display": "standalone",
+  "orientation": "portrait"
 }
