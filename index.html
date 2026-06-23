@@ -7,6 +7,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#121212">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #121212; color: #e5e7eb; }
@@ -19,20 +20,29 @@
 </head>
 <body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none relative">
 
+    <!-- Header -->
     <header class="w-full max-w-4xl flex justify-between items-center py-4 border-b border-zinc-800 mb-6">
         <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
-        <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
-            Disconnect
-        </button>
+        <div class="flex items-center space-x-2">
+            <button id="pwa-install-btn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold px-4 py-2 rounded-full transition hidden">
+                Install App
+            </button>
+            <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
+                Disconnect
+            </button>
+        </div>
     </header>
 
+    <!-- Main Content -->
     <main class="w-full max-w-4xl flex flex-col items-center w-full">
         
+        <!-- Status/Error Banner -->
         <div id="error-banner" class="w-full card-bg border-red-900 rounded-xl p-4 mb-6 text-red-400 text-sm hidden">
             <p class="font-bold mb-1">Application Status/Error:</p>
             <p id="error-message"></p>
         </div>
 
+        <!-- Landing View -->
         <div id="landing-view" class="text-center my-16 max-w-md hidden">
             <h2 class="text-3xl font-extrabold mb-4">Track your streams.</h2>
             <p class="text-zinc-400 mb-8 text-sm">An installable dashboard to view your recent streaming history and listening metrics instantly.</p>
@@ -41,8 +51,10 @@
             </button>
         </div>
 
+        <!-- Dashboard View -->
         <div id="dashboard-view" class="w-full hidden">
             
+            <!-- Smart Features & Metrics Grid -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
                     <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Current Vibe</p>
@@ -62,6 +74,7 @@
                 </div>
             </div>
 
+            <!-- Smart Action Controller -->
             <div class="w-full card-bg rounded-xl p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div class="text-center sm:text-left">
                     <h3 class="font-bold text-white text-sm">Vibe Action Engine</h3>
@@ -72,48 +85,69 @@
                 </button>
             </div>
 
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold tracking-wide">Recent History <span class="text-xs font-normal text-zinc-500">(Tap card for info, icon to play)</span></h2>
-                <span id="track-count" class="text-xs text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full">0 tracks</span>
+            <!-- Header and Filter Interface -->
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3 w-full">
+                <h2 class="text-lg font-semibold tracking-wide w-full sm:w-auto text-left">Recent History <span class="text-xs font-normal text-zinc-500 block sm:inline">(Tap card for info, play icon to preview)</span></h2>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <input id="search-input" type="text" placeholder="Filter recent songs..." class="bg-zinc-900 border border-zinc-850 text-xs px-3 py-1.5 rounded-lg text-white w-full sm:w-48 focus:outline-none focus:border-zinc-700 transition" oninput="filterTracks()">
+                    <span id="track-count" class="text-xs text-zinc-400 bg-zinc-800 px-2.5 py-1.5 rounded-lg whitespace-nowrap">0 tracks</span>
+                </div>
             </div>
             
+            <!-- Tracks Container -->
             <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
         </div>
     </main>
 
-    <div id="info-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
-        <div class="card-bg w-full max-w-sm rounded-2xl p-6 relative transform scale-95 transition-transform duration-200">
+    <!-- Info Detail Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200" onclick="handleOutsideModalClick(event)">
+        <div id="modal-container" class="card-bg w-full max-w-sm rounded-2xl p-6 relative transform scale-95 transition-transform duration-200">
             <button onclick="closeModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1">×</button>
             
             <div class="flex items-center space-x-4 mb-6">
                 <img id="modal-img" class="w-16 h-16 rounded-lg object-cover shadow-md">
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                     <h3 id="modal-title" class="font-bold text-white text-base truncate">Song Title</h3>
                     <p id="modal-artist" class="text-sm text-zinc-400 truncate">Artist Name</p>
                 </div>
             </div>
 
-            <div class="space-y-3 text-sm">
-                <div class="border-b border-zinc-800 pb-2">
-                    <p class="text-xs text-zinc-500 font-medium uppercase">Artist Genres</p>
-                    <p id="modal-genres" class="text-white font-medium mt-0.5">Analyzing...</p>
+            <div class="space-y-4 text-sm">
+                <div class="border-b border-zinc-800 pb-3">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Artist Genres</p>
+                    <p id="modal-genres" class="text-white font-semibold mt-0.5">Analyzing...</p>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <p class="text-xs text-zinc-500 font-medium uppercase">Tempo</p>
-                        <p id="modal-tempo" class="text-white font-medium mt-0.5">Calculating...</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
+                        <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Tempo</p>
+                        <p id="modal-tempo" class="text-white font-bold mt-0.5 text-base">Calculating...</p>
                     </div>
-                    <div>
-                        <p class="text-xs text-zinc-500 font-medium uppercase">Danceability</p>
-                        <p id="modal-dance" class="text-white font-medium mt-0.5">Calculating...</p>
+                    <div class="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Danceability</p>
+                            <span id="modal-dance-val" class="text-xs font-bold text-white">0%</span>
+                        </div>
+                        <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                            <div id="modal-dance-bar" class="bg-green-500 h-full w-0 transition-all duration-500 ease-out"></div>
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-xs text-zinc-500 font-medium uppercase">Acousticness</p>
-                        <p id="modal-acoustic" class="text-white font-medium mt-0.5">Calculating...</p>
+                    <div class="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Acousticness</p>
+                            <span id="modal-acoustic-val" class="text-xs font-bold text-white">0%</span>
+                        </div>
+                        <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                            <div id="modal-acoustic-bar" class="bg-amber-500 h-full w-0 transition-all duration-500 ease-out"></div>
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-xs text-zinc-500 font-medium uppercase">Happiness (Valence)</p>
-                        <p id="modal-valence" class="text-white font-medium mt-0.5">Calculating...</p>
+                    <div class="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Happiness</p>
+                            <span id="modal-valence-val" class="text-xs font-bold text-white">0%</span>
+                        </div>
+                        <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                            <div id="modal-valence-bar" class="bg-indigo-500 h-full w-0 transition-all duration-500 ease-out"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -123,11 +157,10 @@
     <script>
         const CLIENT_ID = '997e4ee06e624c7aaf77a45f30e74394'; 
         const REDIRECT_URI = window.location.origin + window.location.pathname; 
-        
-        // Added playlist creation scopes to permission matrix
         const SCOPE = 'user-read-recently-played playlist-modify-public';
 
         const logoutBtn = document.getElementById('logout-btn');
+        const pwaInstallBtn = document.getElementById('pwa-install-btn');
         const landingView = document.getElementById('landing-view');
         const dashboardView = document.getElementById('dashboard-view');
         const tracksList = document.getElementById('tracks-list');
@@ -144,20 +177,27 @@
 
         // Modal Elements
         const infoModal = document.getElementById('info-modal');
+        const modalContainer = document.getElementById('modal-container');
         const modalImg = document.getElementById('modal-img');
         const modalTitle = document.getElementById('modal-title');
         const modalArtist = document.getElementById('modal-artist');
         const modalGenres = document.getElementById('modal-genres');
         const modalTempo = document.getElementById('modal-tempo');
-        const modalDance = document.getElementById('modal-dance');
-        const modalAcoustic = document.getElementById('modal-acoustic');
-        const modalValence = document.getElementById('modal-valence');
+        const modalDanceVal = document.getElementById('modal-dance-val');
+        const modalDanceBar = document.getElementById('modal-dance-bar');
+        const modalAcousticVal = document.getElementById('modal-acoustic-val');
+        const modalAcousticBar = document.getElementById('modal-acoustic-bar');
+        const modalValenceVal = document.getElementById('modal-valence-val');
+        const modalValenceBar = document.getElementById('modal-valence-bar');
 
-        // Global state tracking architecture
         let globalTrackFeatures = {};
         let globalArtistGenres = {};
         let loadedTrackUris = [];
+        let rawTracksCache = [];
         let currentCalculatedVibe = "Balanced Mix";
+        let activeAudio = null;
+        let activeAudioTrackId = null;
+        let deferredPrompt;
 
         function showUIStatus(msg, isError = true) {
             errorMessage.innerText = msg;
@@ -171,29 +211,48 @@
             errorBanner.classList.remove('hidden');
         }
 
+        // PWA Installation Hook
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            pwaInstallBtn.classList.remove('hidden');
+            pwaInstallBtn.onclick = async () => {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    pwaInstallBtn.classList.add('hidden');
+                }
+                deferredPrompt = null;
+            };
+        });
+
         async function init() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js').catch(err => console.log("SW failed", err));
+                navigator.serviceWorker.register('sw.js').catch(err => console.log("SW registration failed:", err));
             }
 
             const args = new URLSearchParams(window.location.search);
             const code = args.get('code');
 
             if (code) {
-                const token = await exchangeCodeForToken(code);
-                if (token && token !== 'undefined') {
-                    localStorage.setItem('access_token', token);
-                }
+                const success = await exchangeCodeForToken(code);
                 window.history.replaceState({}, document.title, window.location.pathname);
+                if (success) {
+                    window.location.reload();
+                }
             }
 
-            const token = localStorage.getItem('access_token');
-            if (token && token !== 'undefined') { 
+            const token = await getValidToken();
+            if (token) { 
                 showDashboard(token); 
             } else { 
-                localStorage.clear();
-                showLanding(); 
+                logout();
             }
+        }
+
+        function logout() {
+            localStorage.clear();
+            showLanding();
         }
 
         function showLanding() {
@@ -207,8 +266,32 @@
             dashboardView.classList.remove('hidden');
             logoutBtn.classList.remove('hidden');
             
-            logoutBtn.onclick = () => { localStorage.clear(); window.location.reload(); };
+            logoutBtn.onclick = () => { logout(); };
+            showSkeletonLoading();
             await fetchDashboardData(token);
+        }
+
+        function showSkeletonLoading() {
+            statVibe.innerHTML = `<span class="inline-block w-20 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
+            statGenres.innerHTML = `<span class="inline-block w-24 h-4 bg-zinc-800 animate-pulse rounded mb-1"></span>`;
+            statEnergy.innerHTML = `<span class="inline-block w-12 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
+            statBaked.innerHTML = `<span class="inline-block w-20 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
+
+            tracksList.innerHTML = Array(6).fill(0).map(() => `
+                <div class="card-bg rounded-xl p-3 flex items-center justify-between animate-pulse pointer-events-none">
+                    <div class="flex items-center space-x-3 min-w-0 flex-1">
+                        <div class="w-12 h-12 rounded-lg bg-zinc-800 flex-shrink-0"></div>
+                        <div class="min-w-0 flex-1 space-y-2">
+                            <div class="h-3 bg-zinc-800 rounded w-3/4"></div>
+                            <div class="h-2.5 bg-zinc-800 rounded w-1/2"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3 flex-shrink-0 ml-2">
+                        <div class="h-3 bg-zinc-800 rounded w-10"></div>
+                        <div class="w-8 h-8 rounded-full bg-zinc-800"></div>
+                    </div>
+                </div>
+            `).join('');
         }
 
         async function fetchDashboardData(token) {
@@ -218,8 +301,7 @@
                 });
 
                 if (response.status === 401) { 
-                    localStorage.clear(); 
-                    showLanding(); 
+                    logout();
                     return; 
                 }
 
@@ -230,16 +312,15 @@
 
                 const data = await response.json();
                 const items = data.items || [];
+                rawTracksCache = items;
 
                 if (items.length === 0) {
                     renderEmptyState();
                     return;
                 }
 
-                // Cache active tracks array payload for compilation
                 loadedTrackUris = items.map(item => item.track.uri).filter(uri => uri);
 
-                // FIX 1: Fixed missing '$' interpolation operator for live metadata loops
                 const artistIds = [...new Set(items.map(item => item.track.artists[0].id))].slice(0, 50).join(',');
                 if (artistIds) {
                     const artistsResponse = await fetch(`https://api.spotify.com/v1/artists?ids=${artistIds}`, {
@@ -253,7 +334,6 @@
                     }
                 }
 
-                // FIX 2: Fixed missing '$' interpolation operator on batch analytics metrics
                 const trackIds = items.map(item => item.track.id).join(',');
                 if (trackIds) {
                     const featuresResponse = await fetch(`https://api.spotify.com/v1/audio-features?ids=${trackIds}`, {
@@ -285,7 +365,7 @@
             let validFeatureCount = 0;
             let hazyTracksCount = 0;
 
-            items.forEach(item => {
+            items.forEach((item, index) => {
                 if (!item.track) return;
                 const track = item.track;
                 const features = globalTrackFeatures[track.id];
@@ -315,10 +395,12 @@
 
                 const cleanTrackTitle = trackName.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 const cleanArtistTitle = artistName.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                const previewUrl = track.preview_url || '';
 
                 const card = document.createElement('div');
                 card.className = 'card-bg rounded-xl p-3 flex items-center justify-between cursor-pointer transition duration-150 transform active:scale-[0.99]';
                 card.setAttribute('onclick', `openModal('${track.id}', '${mainArtistId}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}')`);
+                card.setAttribute('data-index', index);
                 
                 card.innerHTML = `
                     <div class="flex items-center space-x-3 min-w-0 flex-1">
@@ -330,7 +412,7 @@
                     </div>
                     <div class="flex items-center space-x-3 flex-shrink-0 ml-2">
                         <span class="text-xs text-zinc-500 font-medium">${playedAt}</span>
-                        <button onclick="playTrackNative(event, '${track.id}')" class="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-90 text-white flex items-center justify-center transition">
+                        <button onclick="handlePlayClick(event, '${track.id}', '${previewUrl}')" class="play-btn w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-90 text-white flex items-center justify-center transition">
                             <svg class="w-3 h-3 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </button>
                     </div>
@@ -346,7 +428,6 @@
 
             statEnergy.innerText = `${Math.round(avgEnergy * 100)}%`;
 
-            // FIX 3: Fixed the fatal `avgCamp` reference typo crashing calculation chains
             let vibe = "Balanced Mix";
             if (avgEnergy > 0.7 && avgValence > 0.6) vibe = "Hype / Electric";
             else if (avgEnergy > 0.6 && avgValence <= 0.4) vibe = "Intense / Dark";
@@ -366,12 +447,86 @@
             statBaked.innerText = highStatus;
         }
 
-        function playTrackNative(event, trackId) {
-            event.stopPropagation(); 
-            window.location.href = `spotify:track:${trackId}`;
+        function filterTracks() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const cards = tracksList.children;
+            let visibleCount = 0;
+
+            rawTracksCache.forEach((item, index) => {
+                const card = cards[index];
+                if (!card) return;
+                
+                const trackName = item.track.name.toLowerCase();
+                const artistName = item.track.artists.map(a => a.name).join(', ').toLowerCase();
+                
+                if (trackName.includes(query) || artistName.includes(query)) {
+                    card.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+            trackCount.innerText = `${visibleCount} match${visibleCount !== 1 ? 'es' : ''}`;
         }
 
-        // Modal Information Injection
+        function handlePlayClick(event, trackId, previewUrl) {
+            event.stopPropagation();
+
+            if (!previewUrl) {
+                window.location.href = `spotify:track:${trackId}`;
+                return;
+            }
+
+            const btn = event.currentTarget;
+            
+            if (activeAudio && activeAudioTrackId === trackId) {
+                if (activeAudio.paused) {
+                    activeAudio.play();
+                    updatePlayButtonState(btn, true);
+                } else {
+                    activeAudio.pause();
+                    updatePlayButtonState(btn, false);
+                }
+                return;
+            }
+
+            if (activeAudio) {
+                activeAudio.pause();
+                resetPlayButtons();
+            }
+
+            activeAudio = new Audio(previewUrl);
+            activeAudioTrackId = trackId;
+            activeAudio.play();
+            updatePlayButtonState(btn, true);
+
+            activeAudio.onended = () => {
+                updatePlayButtonState(btn, false);
+                activeAudio = null;
+                activeAudioTrackId = null;
+            };
+        }
+
+        function updatePlayButtonState(btn, isPlaying) {
+            if (isPlaying) {
+                btn.innerHTML = `<svg class="w-3 h-3 fill-current text-white" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+                btn.classList.add('bg-green-500');
+                btn.classList.remove('bg-zinc-800', 'hover:bg-zinc-700');
+            } else {
+                btn.innerHTML = `<svg class="w-3 h-3 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+                btn.classList.remove('bg-green-500');
+                btn.classList.add('bg-zinc-800', 'hover:bg-zinc-700');
+            }
+        }
+
+        function resetPlayButtons() {
+            document.querySelectorAll('.play-btn').forEach(btn => {
+                btn.innerHTML = `<svg class="w-3 h-3 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+                btn.classList.remove('bg-green-500');
+                btn.classList.add('bg-zinc-800', 'hover:bg-zinc-700');
+            });
+        }
+
         function openModal(trackId, artistId, title, artist, artUrl) {
             const features = globalTrackFeatures[trackId];
             const genres = globalArtistGenres[artistId] || [];
@@ -383,46 +538,68 @@
 
             if (features) {
                 modalTempo.innerText = `${Math.round(features.tempo)} BPM`;
-                modalDance.innerText = `${Math.round(features.danceability * 100)}%`;
-                modalAcoustic.innerText = `${Math.round(features.acousticness * 100)}%`;
-                modalValence.innerText = `${Math.round(features.valence * 100)}%`;
+                
+                modalDanceVal.innerText = `${Math.round(features.danceability * 100)}%`;
+                modalAcousticVal.innerText = `${Math.round(features.acousticness * 100)}%`;
+                modalValenceVal.innerText = `${Math.round(features.valence * 100)}%`;
+
+                modalDanceBar.style.width = '0%';
+                modalAcousticBar.style.width = '0%';
+                modalValenceBar.style.width = '0%';
+
+                infoModal.classList.remove('hidden');
+                setTimeout(() => {
+                    infoModal.classList.remove('opacity-0');
+                    modalContainer.classList.remove('scale-95');
+                    
+                    modalDanceBar.style.width = `${Math.round(features.danceability * 100)}%`;
+                    modalAcousticBar.style.width = `${Math.round(features.acousticness * 100)}%`;
+                    modalValenceBar.style.width = `${Math.round(features.valence * 100)}%`;
+                }, 50);
             } else {
                 modalTempo.innerText = 'Unavailable';
-                modalDance.innerText = 'Unavailable';
-                modalAcoustic.innerText = 'Unavailable';
-                modalValence.innerText = 'Unavailable';
-            }
+                modalDanceVal.innerText = '0%';
+                modalAcousticVal.innerText = '0%';
+                modalValenceVal.innerText = '0%';
+                
+                modalDanceBar.style.width = '0%';
+                modalAcousticBar.style.width = '0%';
+                modalValenceBar.style.width = '0%';
 
-            infoModal.classList.remove('hidden');
-            setTimeout(() => {
-                infoModal.classList.remove('opacity-0');
-                infoModal.firstElementChild.classList.remove('scale-95');
-            }, 10);
+                infoModal.classList.remove('hidden');
+                setTimeout(() => {
+                    infoModal.classList.remove('opacity-0');
+                    modalContainer.classList.remove('scale-95');
+                }, 50);
+            }
         }
 
         function closeModal() {
             infoModal.classList.add('opacity-0');
-            infoModal.firstElementChild.classList.add('scale-95');
+            modalContainer.classList.add('scale-95');
             setTimeout(() => { infoModal.classList.add('hidden'); }, 200);
         }
 
-        // SMART ADVANCED FEATURE: Automatic Account Profile Playlist Assembler
+        function handleOutsideModalClick(event) {
+            if (event.target === infoModal) {
+                closeModal();
+            }
+        }
+
         async function generateVibePlaylist() {
-            const token = localStorage.getItem('access_token');
+            const token = await getValidToken();
             if (!token || loadedTrackUris.length === 0) return;
 
             playlistBtn.disabled = true;
             playlistBtn.innerText = "Creating...";
 
             try {
-                // 1. Get current logged-in profile ID
                 const meResponse = await fetch('https://api.spotify.com/v1/me', {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 const meData = await meResponse.json();
                 const userId = meData.id;
 
-                // 2. Create blank public playlist shell
                 const createPlaylistResponse = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
                     method: 'POST',
                     headers: {
@@ -438,7 +615,6 @@
                 const playlistData = await createPlaylistResponse.json();
                 const playlistId = playlistData.id;
 
-                // 3. Populate container with matched tracks list
                 await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
                     method: 'POST',
                     headers: {
@@ -462,6 +638,7 @@
             statGenres.innerText = "None";
             statEnergy.innerText = "0%";
             statBaked.innerText = "Unknown";
+            tracksList.innerHTML = `<div class="col-span-full py-12 text-center text-zinc-500 text-sm">No streaming history found. Open Spotify, play some tracks, and check back!</div>`;
         }
 
         async function loginWithSpotifyClick() {
@@ -503,10 +680,68 @@
                 }
 
                 const data = await response.json();
+                saveTokens(data);
+                return true;
+            } catch (e) {
+                showUIStatus(e.message);
+                return false;
+            }
+        }
+
+        async function getValidToken() {
+            let token = localStorage.getItem('access_token');
+            const expiresAt = localStorage.getItem('expires_at');
+            const refreshToken = localStorage.getItem('refresh_token');
+
+            if (!token) return null;
+
+            if (expiresAt && Date.now() > (Number(expiresAt) - 60000)) {
+                if (refreshToken) {
+                    token = await refreshAccessToken(refreshToken);
+                } else {
+                    token = null;
+                }
+            }
+            return token;
+        }
+
+        async function refreshAccessToken(refreshToken) {
+            try {
+                const params = new URLSearchParams({
+                    client_id: CLIENT_ID,
+                    grant_type: 'refresh_token',
+                    refresh_token: refreshToken
+                });
+
+                const response = await fetch('https://accounts.spotify.com/api/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to refresh access token");
+                }
+
+                const data = await response.json();
+                saveTokens(data);
                 return data.access_token;
             } catch (e) {
-                showUIError(e.message);
+                console.error("Session refresh failure:", e);
                 return null;
+            }
+        }
+
+        function saveTokens(data) {
+            if (data.access_token) {
+                localStorage.setItem('access_token', data.access_token);
+                if (data.refresh_token) {
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                }
+                if (data.expires_in) {
+                    const expiresAt = Date.now() + (data.expires_in * 1000);
+                    localStorage.setItem('expires_at', expiresAt);
+                }
             }
         }
 
