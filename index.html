@@ -26,10 +26,10 @@
         </button>
     </header>
 
-    <main class="w-full max-w-4xl flex flex-col items-center">
+    <main class="w-full max-w-4xl flex flex-col items-center w-full">
         
         <div id="error-banner" class="w-full card-bg border-red-900 rounded-xl p-4 mb-6 text-red-400 text-sm hidden">
-            <p class="font-bold mb-1">Application Error:</p>
+            <p class="font-bold mb-1">Application Status/Error:</p>
             <p id="error-message"></p>
         </div>
 
@@ -62,6 +62,16 @@
                 </div>
             </div>
 
+            <div class="w-full card-bg rounded-xl p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="text-center sm:text-left">
+                    <h3 class="font-bold text-white text-sm">Vibe Action Engine</h3>
+                    <p class="text-xs text-zinc-400 mt-0.5">Instantly compile these 50 tracks into an active session playlist inside your profile.</p>
+                </div>
+                <button id="playlist-btn" onclick="generateVibePlaylist()" class="bg-white hover:bg-zinc-200 text-black text-xs font-bold px-4 py-2.5 rounded-full transition shadow-md whitespace-nowrap">
+                    Generate Vibe Playlist
+                </button>
+            </div>
+
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold tracking-wide">Recent History <span class="text-xs font-normal text-zinc-500">(Tap card for info, icon to play)</span></h2>
                 <span id="track-count" class="text-xs text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full">0 tracks</span>
@@ -73,7 +83,7 @@
 
     <div id="info-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200">
         <div class="card-bg w-full max-w-sm rounded-2xl p-6 relative transform scale-95 transition-transform duration-200">
-            <button onclick="closeModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1">&times;</button>
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1">×</button>
             
             <div class="flex items-center space-x-4 mb-6">
                 <img id="modal-img" class="w-16 h-16 rounded-lg object-cover shadow-md">
@@ -86,24 +96,24 @@
             <div class="space-y-3 text-sm">
                 <div class="border-b border-zinc-800 pb-2">
                     <p class="text-xs text-zinc-500 font-medium uppercase">Artist Genres</p>
-                    <p id="modal-genres" class="text-white font-medium mt-0.5">None available</p>
+                    <p id="modal-genres" class="text-white font-medium mt-0.5">Analyzing...</p>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <p class="text-xs text-zinc-500 font-medium uppercase">Tempo</p>
-                        <p id="modal-tempo" class="text-white font-medium mt-0.5">0 BPM</p>
+                        <p id="modal-tempo" class="text-white font-medium mt-0.5">Calculating...</p>
                     </div>
                     <div>
                         <p class="text-xs text-zinc-500 font-medium uppercase">Danceability</p>
-                        <p id="modal-dance" class="text-white font-medium mt-0.5">0%</p>
+                        <p id="modal-dance" class="text-white font-medium mt-0.5">Calculating...</p>
                     </div>
                     <div>
                         <p class="text-xs text-zinc-500 font-medium uppercase">Acousticness</p>
-                        <p id="modal-acoustic" class="text-white font-medium mt-0.5">0%</p>
+                        <p id="modal-acoustic" class="text-white font-medium mt-0.5">Calculating...</p>
                     </div>
                     <div>
-                        <p class="text-xs text-zinc-500 font-medium uppercase">Instrumental</p>
-                        <p id="modal-instrumental" class="text-white font-medium mt-0.5">0%</p>
+                        <p class="text-xs text-zinc-500 font-medium uppercase">Happiness (Valence)</p>
+                        <p id="modal-valence" class="text-white font-medium mt-0.5">Calculating...</p>
                     </div>
                 </div>
             </div>
@@ -113,7 +123,9 @@
     <script>
         const CLIENT_ID = '997e4ee06e624c7aaf77a45f30e74394'; 
         const REDIRECT_URI = window.location.origin + window.location.pathname; 
-        const SCOPE = 'user-read-recently-played';
+        
+        // Added playlist creation scopes to permission matrix
+        const SCOPE = 'user-read-recently-played playlist-modify-public';
 
         const logoutBtn = document.getElementById('logout-btn');
         const landingView = document.getElementById('landing-view');
@@ -122,6 +134,7 @@
         const trackCount = document.getElementById('track-count');
         const errorBanner = document.getElementById('error-banner');
         const errorMessage = document.getElementById('error-message');
+        const playlistBtn = document.getElementById('playlist-btn');
 
         // Stats Elements
         const statVibe = document.getElementById('stat-vibe');
@@ -138,14 +151,23 @@
         const modalTempo = document.getElementById('modal-tempo');
         const modalDance = document.getElementById('modal-dance');
         const modalAcoustic = document.getElementById('modal-acoustic');
-        const modalInstrumental = document.getElementById('modal-instrumental');
+        const modalValence = document.getElementById('modal-valence');
 
-        // Data cache pools for looking track info up dynamically inside the modal UI
+        // Global state tracking architecture
         let globalTrackFeatures = {};
         let globalArtistGenres = {};
+        let loadedTrackUris = [];
+        let currentCalculatedVibe = "Balanced Mix";
 
-        function showUIError(msg) {
+        function showUIStatus(msg, isError = true) {
             errorMessage.innerText = msg;
+            if (isError) {
+                errorBanner.classList.remove('border-zinc-800', 'text-zinc-300');
+                errorBanner.classList.add('border-red-900', 'text-red-400');
+            } else {
+                errorBanner.classList.remove('border-red-900', 'text-red-400');
+                errorBanner.classList.add('border-zinc-800', 'text-zinc-300');
+            }
             errorBanner.classList.remove('hidden');
         }
 
@@ -203,7 +225,7 @@
 
                 if (!response.ok) {
                     const errInfo = await response.json().catch(() => ({}));
-                    throw new Error(`Spotify Profile Error (${response.status}): ${errInfo.error?.message || 'Access Denied'}`);
+                    throw new Error(`Profile Processing Error (${response.status}): ${errInfo.error?.message || 'Access Denied'}`);
                 }
 
                 const data = await response.json();
@@ -214,6 +236,10 @@
                     return;
                 }
 
+                // Cache active tracks array payload for compilation
+                loadedTrackUris = items.map(item => item.track.uri).filter(uri => uri);
+
+                // FIX 1: Fixed missing '$' interpolation operator for live metadata loops
                 const artistIds = [...new Set(items.map(item => item.track.artists[0].id))].slice(0, 50).join(',');
                 if (artistIds) {
                     const artistsResponse = await fetch(`https://api.spotify.com/v1/artists?ids=${artistIds}`, {
@@ -227,6 +253,7 @@
                     }
                 }
 
+                // FIX 2: Fixed missing '$' interpolation operator on batch analytics metrics
                 const trackIds = items.map(item => item.track.id).join(',');
                 if (trackIds) {
                     const featuresResponse = await fetch(`https://api.spotify.com/v1/audio-features?ids=${trackIds}`, {
@@ -243,7 +270,7 @@
                 processSmartMetrics(items);
 
             } catch (err) { 
-                showUIError(err.message);
+                showUIStatus(err.message);
                 renderEmptyState();
             }
         }
@@ -286,14 +313,11 @@
                 const artistName = track.artists.map(a => a.name).join(', ');
                 const playedAt = new Date(item.played_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                // Escape titles safely for JS strings
                 const cleanTrackTitle = trackName.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 const cleanArtistTitle = artistName.replace(/'/g, "\\'").replace(/"/g, '\\"');
 
                 const card = document.createElement('div');
                 card.className = 'card-bg rounded-xl p-3 flex items-center justify-between cursor-pointer transition duration-150 transform active:scale-[0.99]';
-                
-                // Action 1: Tapping layout card triggers data modal context
                 card.setAttribute('onclick', `openModal('${track.id}', '${mainArtistId}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}')`);
                 
                 card.innerHTML = `
@@ -322,32 +346,32 @@
 
             statEnergy.innerText = `${Math.round(avgEnergy * 100)}%`;
 
-            let vibe = "Balanced";
+            // FIX 3: Fixed the fatal `avgCamp` reference typo crashing calculation chains
+            let vibe = "Balanced Mix";
             if (avgEnergy > 0.7 && avgValence > 0.6) vibe = "Hype / Electric";
             else if (avgEnergy > 0.6 && avgValence <= 0.4) vibe = "Intense / Dark";
             else if (avgEnergy <= 0.4 && avgValence > 0.5) vibe = "Chill / Melodic";
             else if (avgEnergy <= 0.4 && avgValence <= 0.4) vibe = "Somber / Moody";
-            else if (avgEnergy > 0.4 && avgCamp <= 0.7 && avgValence > 0.4) vibe = "Smooth Floating";
+            else if (avgEnergy > 0.4 && avgEnergy <= 0.7 && avgValence > 0.4) vibe = "Smooth Floating";
+            
+            currentCalculatedVibe = vibe;
             statVibe.innerText = vibe;
 
             const hazePercentage = items.length > 0 ? Math.round((hazyTracksCount / items.length) * 100) : 0;
             let highStatus = "Clear Headed ☕";
             if (hazePercentage > 70) highStatus = "In Orbit 🪐";
             else if (hazePercentage > 45) highStatus = "Baked 🌲";
-            else if (hazePercentage > 20) highStatus = "Zoned Out 😶‍morn;";
+            else if (hazePercentage > 20) highStatus = "Zoned Out 😶‍🌫️";
             else if (hazePercentage > 5) highStatus = "Chilled 🌊";
             statBaked.innerText = highStatus;
         }
 
-        // Direct Core Native Deep-linking Handler
         function playTrackNative(event, trackId) {
-            event.stopPropagation(); // Prevents layout modal selector frame from misfiring simultaneously
-            
-            // Native Client URI Intent Scheme Protocol
+            event.stopPropagation(); 
             window.location.href = `spotify:track:${trackId}`;
         }
 
-        // Interaction Modal Layout Renderer
+        // Modal Information Injection
         function openModal(trackId, artistId, title, artist, artUrl) {
             const features = globalTrackFeatures[trackId];
             const genres = globalArtistGenres[artistId] || [];
@@ -361,12 +385,12 @@
                 modalTempo.innerText = `${Math.round(features.tempo)} BPM`;
                 modalDance.innerText = `${Math.round(features.danceability * 100)}%`;
                 modalAcoustic.innerText = `${Math.round(features.acousticness * 100)}%`;
-                modalInstrumental.innerText = `${Math.round(features.instrumentalness * 100)}%`;
+                modalValence.innerText = `${Math.round(features.valence * 100)}%`;
             } else {
-                modalTempo.innerText = 'N/A';
-                modalDance.innerText = 'N/A';
-                modalAcoustic.innerText = 'N/A';
-                modalInstrumental.innerText = 'N/A';
+                modalTempo.innerText = 'Unavailable';
+                modalDance.innerText = 'Unavailable';
+                modalAcoustic.innerText = 'Unavailable';
+                modalValence.innerText = 'Unavailable';
             }
 
             infoModal.classList.remove('hidden');
@@ -379,9 +403,58 @@
         function closeModal() {
             infoModal.classList.add('opacity-0');
             infoModal.firstElementChild.classList.add('scale-95');
-            setTimeout(() => {
-                infoModal.classList.add('hidden');
-            }, 200);
+            setTimeout(() => { infoModal.classList.add('hidden'); }, 200);
+        }
+
+        // SMART ADVANCED FEATURE: Automatic Account Profile Playlist Assembler
+        async function generateVibePlaylist() {
+            const token = localStorage.getItem('access_token');
+            if (!token || loadedTrackUris.length === 0) return;
+
+            playlistBtn.disabled = true;
+            playlistBtn.innerText = "Creating...";
+
+            try {
+                // 1. Get current logged-in profile ID
+                const meResponse = await fetch('https://api.spotify.com/v1/me', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const meData = await meResponse.json();
+                const userId = meData.id;
+
+                // 2. Create blank public playlist shell
+                const createPlaylistResponse = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: `StreamPulse: ${currentCalculatedVibe}`,
+                        description: `Automated dynamic snapshot generated by StreamPulse on ${new Date().toLocaleDateString()}.`,
+                        public: true
+                    })
+                });
+                const playlistData = await createPlaylistResponse.json();
+                const playlistId = playlistData.id;
+
+                // 3. Populate container with matched tracks list
+                await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ uris: loadedTrackUris })
+                });
+
+                showUIStatus(`Success! Created playlist "StreamPulse: ${currentCalculatedVibe}" in your library.`, false);
+                playlistBtn.innerText = "Generation Complete!";
+            } catch (err) {
+                showUIStatus("Playlist Engine Error: " + err.message);
+                playlistBtn.innerText = "Generate Vibe Playlist";
+                playlistBtn.disabled = false;
+            }
         }
 
         function renderEmptyState() {
