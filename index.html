@@ -37,7 +37,7 @@
     <div class="fixed inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-black -z-10"></div>
 
     <!-- Header -->
-    <header class="w-full max-w-5xl flex justify-between items-center py-4 border-b border-zinc-800/80 mb-6">
+    <header class="w-full max-w-4xl flex justify-between items-center py-4 border-b border-zinc-800/80 mb-6">
         <div class="flex items-center space-x-3">
             <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
             <span id="hydration-badge" class="text-[9px] bg-zinc-850 text-zinc-400 border border-zinc-800 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Connect-Only Mode</span>
@@ -56,11 +56,11 @@
     </header>
 
     <!-- Main Content -->
-    <main class="w-full max-w-5xl flex flex-col items-center w-full">
+    <main class="w-full max-w-4xl flex flex-col items-center w-full">
         
         <!-- Status/Error Banner -->
         <div id="error-banner" class="w-full card-bg border-red-900/60 rounded-xl p-4 mb-6 text-red-400 text-sm hidden">
-            <p class="font-bold mb-1">System Notification:</p>
+            <p class="font-bold mb-1">System Status:</p>
             <p id="error-message"></p>
         </div>
 
@@ -119,7 +119,7 @@
             </div>
 
             <!-- Navigation Switcher -->
-            <nav class="flex space-x-1 bg-zinc-900/60 p-1 rounded-xl w-full max-w-md mx-auto border border-zinc-850">
+            <nav class="flex space-x-1 bg-zinc-900/60 p-1 rounded-xl w-full max-w-md mx-auto border border-zinc-800/60">
                 <button onclick="switchTab('hub')" id="tab-btn-hub" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800">
                     📊 Listening Logs
                 </button>
@@ -127,29 +127,29 @@
                     🎵 Queue Controller
                 </button>
                 <button onclick="switchTab('ai')" id="tab-btn-ai" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white">
-                    🤖 AI DJ Lounge
+                    🤖 AI Assistant
                 </button>
             </nav>
 
             <!-- TAB 1: HUB & AUDIT LOGS -->
             <div id="tab-content-hub" class="w-full space-y-6">
-                <!-- Adaptive Stats Grid (Swaps from factual to AI-hydrated dynamically) -->
+                <!-- Cool Metrics stats grid -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div class="card-bg rounded-xl p-4 text-center">
-                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Loaded Volume</p>
-                        <p id="stat-count" class="text-lg font-extrabold text-white">Calculating...</p>
+                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-between">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Underground Index</p>
+                        <p id="stat-indie" class="text-lg font-extrabold text-white">0%</p>
                     </div>
-                    <div class="card-bg rounded-xl p-4 text-center">
+                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-between">
                         <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Audited Runtime</p>
                         <p id="stat-runtime" class="text-lg font-extrabold text-white">Calculating...</p>
                     </div>
-                    <div class="card-bg rounded-xl p-4 text-center">
-                        <p id="label-stat-energy" class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Average Popularity</p>
-                        <p id="stat-popularity" class="text-lg font-extrabold text-white">Calculating...</p>
+                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-between">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Unique Genres</p>
+                        <p id="stat-genres-count" class="text-lg font-extrabold text-white">0</p>
                     </div>
-                    <div class="card-bg rounded-xl p-4 text-center">
-                        <p id="label-stat-tempo" class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Top Shared Genre</p>
-                        <p id="stat-topgenre" class="text-xs font-extrabold text-emerald-400 truncate mt-1">Analyzing...</p>
+                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-between relative overflow-hidden">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Haze Factor</p>
+                        <p id="stat-haze" class="text-xs font-extrabold text-amber-500 mt-1">Scanning...</p>
                     </div>
                 </div>
 
@@ -189,7 +189,7 @@
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-3 w-full">
                     <div class="text-left w-full sm:w-auto">
                         <h2 class="text-lg font-semibold tracking-wide">Interactive Stream Queue</h2>
-                        <p class="text-xs text-zinc-500 font-normal">Slide the tracking indicator fully to the right to add any track directly to your active playback session.</p>
+                        <p class="text-xs text-zinc-500 font-normal">Use either slide actions or explicit queue buttons to send entries to your live Spotify session.</p>
                     </div>
                     <div class="flex items-center gap-2 w-full sm:w-auto">
                         <input id="search-input" type="text" placeholder="Filter tracked list..." class="bg-zinc-900 border border-zinc-800 text-xs px-3 py-1.5 rounded-lg text-white w-full sm:w-48 focus:outline-none focus:border-zinc-700 transition" oninput="filterTracks()">
@@ -200,7 +200,7 @@
                 <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
             </div>
 
-            <!-- TAB 3: AI ASSISTANT LOUNGE (Redesigned completely as a messaging interface) -->
+            <!-- TAB 3: AI ASSISTANT LOUNGE (Redesigned as an interactive Music Archivist Chat) -->
             <div id="tab-content-ai" class="w-full hidden grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 
                 <!-- Left panel: config options -->
@@ -224,46 +224,31 @@
                         </div>
                     </div>
 
-                    <div class="flex space-x-2 pt-2 border-t border-zinc-850">
-                        <button onclick="saveAIConfig()" class="bg-zinc-850 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
-                            Save Configuration
+                    <div class="flex space-x-2 pt-2">
+                        <button onclick="saveAIConfig()" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition">
+                            Save Config
                         </button>
-                        <button onclick="generateAIPrivacyClear()" class="text-zinc-500 hover:text-zinc-300 text-xs px-2 py-2 transition">
-                            Reset Key
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Right panel: Interactive AI chat coach and log analyser -->
-                <div class="card-bg rounded-2xl p-5 lg:col-span-2 flex flex-col h-[520px]">
-                    <div class="flex justify-between items-center border-b border-zinc-850 pb-3">
-                        <div>
-                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">AI DJ Chat Lounge</h3>
-                            <p class="text-[10px] text-zinc-500">Ask metrics questions, evaluation critiques, or timeline gap breakdowns.</p>
-                        </div>
-                        <button id="ai-run-btn" onclick="runAIAuditor()" class="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-extrabold px-4 py-2 rounded-full transition shadow-md whitespace-nowrap">
-                            🚀 Initialize AI Metrics
-                        </button>
-                    </div>
-
-                    <!-- Chat conversation timeline thread -->
-                    <div id="chat-thread" class="flex-1 overflow-y-auto py-4 space-y-4 font-mono text-xs pr-2">
-                        <div class="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 text-zinc-400">
-                            <strong>[StreamPulse AI]</strong>: Connection Standby. 
-                            <br><br>
-                            Click the <span class="text-white font-bold">"Initialize AI Metrics"</span> button to audit your active tracklist. Once completed, your queue dashboard will immediately populate with projected musical BPMs, keys, and advanced metrics.
-                        </div>
-                    </div>
-
-                    <!-- Interactive text message input prompt -->
-                    <div class="border-t border-zinc-850 pt-3 flex gap-2">
-                        <input id="chat-input" type="text" placeholder="Ask AI DJ: 'Suggest some mixes...' or 'Critique my gaps...'" class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-zinc-700 transition" onkeydown="if(event.key==='Enter') sendChatMessage()">
-                        <button onclick="sendChatMessage()" class="bg-white hover:bg-zinc-200 text-black text-xs font-extrabold px-4 rounded-xl transition">
-                            Send
+                        <button onclick="generateAIPrivacyClear()" class="text-zinc-500 hover:text-zinc-300 text-xs px-2 py-2.5 transition">
+                            Clear Token
                         </button>
                     </div>
                 </div>
 
+                <!-- Music Archivist Output terminal -->
+                <div class="card-bg rounded-xl p-5 space-y-4 lg:col-span-2">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">AI Session Audit</h3>
+                        <button id="ai-run-btn" onclick="runAIAuditor()" class="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold px-4 py-2.5 rounded-full transition shadow-md">
+                            Analyze All Tracks
+                        </button>
+                    </div>
+
+                    <div id="ai-output-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                        <div class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 text-zinc-400 text-xs text-center leading-relaxed">
+                            No active audit loaded. Connect your API key and click "Analyze All Tracks" to compile detailed tempo, keys, and transition metadata.
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </div>
@@ -282,15 +267,36 @@
                 </div>
             </div>
 
+            <!-- On-demand Track analyzer option -->
+            <button id="modal-ai-btn" onclick="runSingleTrackAnalysis()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-extrabold py-2.5 rounded-lg transition mb-4">
+                🤖 Query AI DJ for Track Insights
+            </button>
+
+            <!-- On-Demand AI insights container target -->
+            <div id="modal-ai-result" class="hidden mb-4 bg-zinc-950 border border-zinc-800/80 rounded-xl p-3 text-xs space-y-2">
+                <div class="flex justify-between items-center border-b border-zinc-850 pb-2">
+                    <span class="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">AI Track Audit</span>
+                    <span id="modal-ai-bpm" class="text-emerald-400 font-bold font-mono">BPM: --</span>
+                </div>
+                <div>
+                    <span class="text-zinc-500 text-[9px] font-bold uppercase block">camelot Key</span>
+                    <span id="modal-ai-key" class="text-zinc-200 font-semibold mt-0.5 inline-block">--</span>
+                </div>
+                <div>
+                    <span class="text-zinc-500 text-[9px] font-bold uppercase block">Music Trivia & Facts</span>
+                    <p id="modal-ai-trivia" class="text-zinc-300 mt-0.5 leading-relaxed">--</p>
+                </div>
+                <div>
+                    <span class="text-zinc-500 text-[9px] font-bold uppercase block">Mixing Suggestion</span>
+                    <p id="modal-ai-mix" class="text-zinc-300 mt-0.5 leading-relaxed">--</p>
+                </div>
+            </div>
+
             <div class="space-y-4 text-sm">
                 <div class="border-b border-zinc-800 pb-3 flex justify-between items-end">
                     <div>
                         <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Artist Genres</p>
                         <p id="modal-genres" class="text-white font-semibold mt-0.5">Loading...</p>
-                    </div>
-                    <!-- Musical Key Hydrated badge -->
-                    <div id="modal-key-badge" class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-extrabold px-2 py-0.5 rounded hidden uppercase tracking-wider">
-                        Key: G# Min
                     </div>
                 </div>
                 <div class="grid grid-cols-1 gap-2.5">
@@ -311,37 +317,6 @@
                     <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
                         <p class="text-[10px] text-zinc-500 font-medium uppercase">Exact Audit Finish Time</p>
                         <p id="modal-timestamp" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
-                    </div>
-                </div>
-
-                <!-- Custom Visual Metrics Hydrated via AI -->
-                <div id="modal-ai-metrics-panel" class="border-t border-zinc-850 pt-3 space-y-3 hidden">
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-xs font-semibold">
-                            <span class="text-zinc-400">Danceability</span>
-                            <span id="modal-metric-danceability-val" class="text-emerald-400">0%</span>
-                        </div>
-                        <div class="w-full bg-zinc-950 h-1 rounded-full overflow-hidden">
-                            <div id="modal-metric-danceability-bar" class="bg-emerald-500 h-full w-0 transition-all duration-500"></div>
-                        </div>
-                    </div>
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-xs font-semibold">
-                            <span class="text-zinc-400">Energy Level</span>
-                            <span id="modal-metric-energy-val" class="text-orange-400">0%</span>
-                        </div>
-                        <div class="w-full bg-zinc-950 h-1 rounded-full overflow-hidden">
-                            <div id="modal-metric-energy-bar" class="bg-orange-500 h-full w-0 transition-all duration-500"></div>
-                        </div>
-                    </div>
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-xs font-semibold">
-                            <span class="text-zinc-400">Happiness (Valence)</span>
-                            <span id="modal-metric-happiness-val" class="text-indigo-400">0%</span>
-                        </div>
-                        <div class="w-full bg-zinc-950 h-1 rounded-full overflow-hidden">
-                            <div id="modal-metric-happiness-bar" class="bg-indigo-500 h-full w-0 transition-all duration-500"></div>
-                        </div>
                     </div>
                 </div>
             </div>
