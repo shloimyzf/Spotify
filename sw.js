@@ -1,10 +1,12 @@
-const CACHE_NAME = 'streampulse-v2';
+const CACHE_NAME = 'streampulse-v3';
 const ASSETS = [
+  './',
   './index.html',
   './manifest.json',
   'https://cdn.tailwindcss.com'
 ];
 
+// Installs and caches the visual assets
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -13,6 +15,7 @@ self.addEventListener('install', (e) => {
   );
 });
 
+// Cleans up any outdated cache files
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -27,14 +30,23 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Intercepts requests and serves cached files, but ignores live API requests
 self.addEventListener('fetch', (e) => {
-  // Let browser make external API calls live
-  if (e.request.url.includes('api.spotify.com') || e.request.url.includes('accounts.spotify.com')) {
+  const url = e.request.url;
+  
+  // Do not try to cache external API network calls
+  if (
+    url.includes('api.spotify.com') || 
+    url.includes('accounts.spotify.com') || 
+    url.includes('googleapis.com') || 
+    url.includes('openai.com')
+  ) {
     return;
   }
+
   e.respondWith(
-    fetch(e.request).catch(() => {
-      return caches.match(e.request);
+    caches.match(e.request).then((cachedResponse) => {
+      return cachedResponse || fetch(e.request);
     })
   );
 });
