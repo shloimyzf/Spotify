@@ -1,4 +1,4 @@
-const CACHE_NAME = 'streampulse-v3';
+const CACHE_NAME = 'streampulse-v4';
 const ASSETS = [
   './',
   './index.html',
