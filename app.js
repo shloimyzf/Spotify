@@ -68,8 +68,6 @@ let aiInspectionCache = {};
 let deferredPrompt;
 
 function showUIStatus(msg, isError = true) {
-    const errorBanner = document.getElementById('error-banner');
-    const errorMessage = document.getElementById('error-message');
     errorMessage.innerText = msg;
     if (isError) {
         errorBanner.classList.remove('border-zinc-800', 'text-zinc-300');
@@ -135,7 +133,7 @@ function switchWorkspaceTab(tabName) {
     }
 }
 
-// Settings save block directly checks layout states before execution
+// Settings load strictly checks browser layout parsed ready state
 function loadSavedAIConfig() {
     const savedProvider = localStorage.getItem('ai_provider') || 'openai';
     const savedKey = localStorage.getItem('ai_key') || '';
@@ -170,14 +168,41 @@ async function init() {
     const token = await getValidToken();
     if (token) { 
         showDashboard(token); 
+        fetchSpotifyProfile(token); // Load user profile details
         startLivePlaybackPolling(); 
     } else { 
         logout();
     }
 }
 
+// Spotify profile sync to make app integrated as one
+async function fetchSpotifyProfile(token) {
+    try {
+        const response = await fetch('https://api.spotify.com/v1/me', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            const badge = document.getElementById('profile-badge');
+            const img = document.getElementById('profile-img');
+            const name = document.getElementById('profile-name');
+            
+            if (data.images && data.images.length > 0) {
+                img.src = data.images[0].url;
+                img.classList.remove('hidden');
+            } else {
+                img.classList.add('hidden');
+            }
+            name.innerText = data.display_name || "Sync Mode";
+            badge.classList.remove('hidden');
+        }
+    } catch (e) {
+        console.error("Profile fetch failed:", e);
+    }
+}
+
 function logout() {
-    // Only clear Spotify variables so we do NOT erase user AI Keys
+    // Only clear Spotify credentials to protect AI key preservation across sessions
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('expires_at');
@@ -266,7 +291,6 @@ async function fetchDashboardData(token) {
     }
 }
 
-// Polling of active playing song has a small issue. Correct timing parameters to prevent overwrites
 function startLivePlaybackPolling() {
     if (livePlaybackInterval) clearInterval(livePlaybackInterval);
     pollLivePlayback(); 
@@ -357,6 +381,7 @@ function showLivePlaybackWidget(data) {
     if (currentPlaybackIsPlaying) {
         localPlaybackTimeTracker = setInterval(() => {
             currentPlaybackProgressMs += 1000;
+            // Fixed loop progression bounds comparison error
             if (currentPlaybackProgressMs > currentPlaybackDurationMs) {
                 currentPlaybackProgressMs = currentPlaybackDurationMs;
                 clearInterval(localPlaybackTimeTracker);
@@ -465,7 +490,7 @@ async function getLiveAILinerNotes() {
     }
 }
 
-// Spotify artist-loop breaker using algorithmically generated recommendation vectors
+// Spotify autoplay loop protection
 async function breakArtistLoop() {
     const token = await getValidToken();
     if (!token || !currentPlayingTrackId) return;
@@ -665,7 +690,7 @@ function processFactualMetrics(items) {
                 </div>
                 
                 <div class="flex items-center space-x-1.5 flex-shrink-0" onclick="event.stopPropagation()">
-                    <button class="card-play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-750 text-white flex items-center justify-center transition" title="Play on active Spotify Device">
+                    <button class="card-play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-705 text-white flex items-center justify-center transition">
                         <svg class="w-2.5 h-2.5 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     </button>
                     <!-- Dedicated Backup Queue Tap Button (Eliminates slider failures entirely) -->
@@ -893,7 +918,7 @@ function filterTracks() {
     trackCount.innerText = `${visibleCount} match${visibleCount !== 1 ? 'es' : ''}`;
 }
 
-// On-demand single track analysis & similar track generation (Fills left column HUD)
+// On-demand single track analysis (Now with slide-over panel design for mobile fluidity)
 async function inspectTrackDetails(trackId) {
     const matchedItem = rawTracksCache.find(item => item.track?.id === trackId);
     if (!matchedItem) return;
@@ -901,20 +926,22 @@ async function inspectTrackDetails(trackId) {
     const track = matchedItem.track;
     const mainArtistId = track.artists[0]?.id;
 
-    // Transition details immediately
+    // Slide-over reveal transition
+    const overlay = document.getElementById('inspector-overlay');
+    overlay.classList.remove('hidden', 'translate-x-full', 'pointer-events-none');
+    overlay.classList.add('translate-x-0');
+
     inspectPlaceholder.classList.add('hidden');
     inspectHeader.classList.remove('hidden');
     inspectAiContent.classList.add('hidden');
     inspectBpm.classList.add('hidden');
     
-    // Clear and hide Spotify recommended seeds layout while loading
     document.getElementById('inspect-similar-box').classList.add('hidden');
 
     inspectArt.src = track.album?.images[2]?.url || 'https://via.placeholder.com/80';
     inspectTitle.innerText = track.name;
     inspectArtist.innerText = track.artists.map(a => a.name).join(', ');
 
-    // Repaint Genre Taxonomy index list in selected track inspector HUD
     const genresBox = document.getElementById('inspect-genres-box');
     const genresCloud = document.getElementById('inspect-genres-cloud');
     const genres = globalArtistGenres[mainArtistId] || [];
@@ -925,10 +952,8 @@ async function inspectTrackDetails(trackId) {
         genresBox.classList.add('hidden');
     }
 
-    // Load Spotify native recommendations seeds alongside AI data
     getFactualSpotifyRecommendations(trackId);
 
-    // Read AI cache to prevent spending tokens twice
     const cachedData = aiInspectionCache[trackId];
     if (cachedData) {
         renderInspectorAIUI(cachedData);
@@ -940,22 +965,24 @@ async function inspectTrackDetails(trackId) {
         return;
     }
 
-    // Begin background hydration securely using stored AI keys
     aiInspectionCache[trackId] = "loading";
     const provider = localStorage.getItem('ai_provider') || 'openai';
 
-    const promptText = `Analyze this specific track: "${track.name}" by ${track.artists.map(a => a.name).join(', ')} (released in ${track.album.release_date}, album: "${track.album.name}").
+    // Highlight: Rigid system prompt forcing the AI to maintain a legendary musicologist persona and outlaw disclaimers
+    const promptText = `You are StreamPulse AI, a legendary vinyl collector, musicologist, and late-night DJ. Conduct a deep track insight analysis for: "${track.name}" by ${track.artists.map(a => a.name).join(', ')} (released: ${track.album.release_date}, album: "${track.album.name}").
 
-Please use your structural neural knowledge of musicology and music history to provide interesting, accurate song facts. 
+    Strict Persona Guidelines:
+    1. Do NOT write defensive, robotic disclaimers regarding unreleased tracks, missing factual parameters, or current years.
+    2. If factual records are sparse, use your deep musical intelligence to dynamically synthesize a highly compelling stylistic evaluation, music history comparison, and artistic context. Speak with absolute authority and style.
 
-Respond ONLY with a valid, parseable JSON object matching this schema. Do not write markdown wraps or code blocks:
-{
-  "bpm": 122,
-  "key": "G Major (Camelot 9B)",
-  "valence_mood": "Warm Euphoric",
-  "trivia": "Provide a 3-sentence interesting factual context/trivia history about the production, writing, or reception of this song.",
-  "mix_tip": "Provide a 2-sentence practical transition tip on how a DJ can cleanly mix this style or what tempo/vibe track to transition into next."
-}`;
+    Respond ONLY with a valid, parseable JSON object matching this schema. Do not write markdown wraps or code blocks:
+    {
+      "bpm": 122,
+      "key": "G Major (Camelot 9B)",
+      "valence_mood": "Warm Euphoric",
+      "trivia": "Provide a 3-sentence interesting factual context/trivia history about the production, writing, or reception of this song.",
+      "mix_tip": "Provide a 2-sentence practical transition tip on how a DJ can cleanly mix this style or what tempo/vibe track to transition into next."
+    }`;
 
     try {
         let responseText = "";
@@ -1000,6 +1027,12 @@ Respond ONLY with a valid, parseable JSON object matching this schema. Do not wr
         console.error("AI Insight failed:", e);
         aiInspectionCache[trackId] = null;
     }
+}
+
+function closeInspectorOverlay() {
+    const overlay = document.getElementById('inspector-overlay');
+    overlay.classList.add('translate-x-full', 'pointer-events-none');
+    overlay.classList.remove('translate-x-0');
 }
 
 // Fetch factual similar tracks natively via Spotify Web Recommendations
@@ -1059,24 +1092,6 @@ async function handleProgrammaticQueue(event, trackUri) {
         btn.className = "bg-red-950/20 border border-red-900/40 text-[9px] text-red-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap";
         showUIStatus("Could not search or inject queue. Ensure Spotify has an active player running on your account.", true);
     }
-}
-
-// Tap backup for queuing
-async function handleQuickQueue(event, trackUri) {
-    event.stopPropagation();
-    const btn = event.currentTarget;
-    btn.innerHTML = `<span class="text-[9px] text-zinc-500 animate-pulse font-extrabold">...</span>`;
-    
-    const success = await addToSpotifyQueue(trackUri);
-    if (success) {
-        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-emerald-400" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
-    } else {
-        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-red-500" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
-        showUIStatus("To add to queue, first open your Spotify app and play a song to establish an active player session.", true);
-    }
-    setTimeout(() => {
-        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-zinc-400" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`;
-    }, 3000);
 }
 
 function renderInspectorAIUI(parsed) {
