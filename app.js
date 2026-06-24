@@ -45,10 +45,14 @@ let currentPlaybackProgressMs = 0;
 let currentPlaybackDurationMs = 0;
 let currentPlaybackIsPlaying = false;
 
+// Realtime currently playing track states (for AI contextual liner notes)
+let currentPlayingTrackName = "";
+let currentPlayingArtistName = "";
+let currentPlayingTrackId = "";
+
 let globalArtistGenres = {};
 let loadedTrackUris = [];
 let rawTracksCache = [];
-let activeModalTrackId = null; // tracking which track is open in the modal
 let deferredPrompt;
 
 function showUIStatus(msg, isError = true) {
@@ -281,6 +285,27 @@ function showLivePlaybackWidget(data) {
     widget.classList.remove('hidden');
 
     const track = data.item;
+    
+    // Live companion data updates when active song ID swaps
+    if (currentPlayingTrackId !== track.id) {
+        currentPlayingTrackId = track.id;
+        currentPlayingTrackName = track.name;
+        currentPlayingArtistName = track.artists.map(a => a.name).join(', ');
+        
+        // Reset companion view fields
+        document.getElementById('live-ai-notes-text').classList.add('hidden');
+        document.getElementById('live-ai-notes-btn').classList.remove('hidden');
+        document.getElementById('live-ai-notes-btn').disabled = false;
+        document.getElementById('live-ai-notes-btn').innerText = "📖 AI Liner Notes";
+        
+        document.getElementById('live-stats-popularity').innerText = `${track.popularity || 0}%`;
+        document.getElementById('live-stats-year').innerText = track.album?.release_date?.slice(0,4) || 'N/A';
+        
+        const mainArtistId = track.artists[0]?.id;
+        const genres = globalArtistGenres[mainArtistId] || [];
+        document.getElementById('live-stats-genres').innerText = genres.length > 0 ? genres.slice(0,2).join(', ') : 'Eclectic';
+    }
+
     titleEl.innerText = track.name;
     artistEl.innerText = track.artists.map(a => a.name).join(', ');
     artEl.src = track.album?.images[2]?.url || track.album?.images[1]?.url || 'https://via.placeholder.com/80';
@@ -298,7 +323,7 @@ function showLivePlaybackWidget(data) {
     if (currentPlaybackIsPlaying) {
         localPlaybackTimeTracker = setInterval(() => {
             currentPlaybackProgressMs += 1000;
-            if (currentPlaybackProgressMs > currentPlaybackDurationMs) {
+            if (currentPlaybackProgressMs > currentPlayingTrackId) {
                 currentPlaybackProgressMs = currentPlaybackDurationMs;
                 clearInterval(localPlaybackTimeTracker);
             }
@@ -332,6 +357,120 @@ function updateLiveProgressUI() {
 function hideLivePlaybackWidget() {
     document.getElementById('live-playback-widget').classList.add('hidden');
     if (localPlaybackTimeTracker) clearInterval(localPlaybackTimeTracker);
+}
+
+// AI Liner Notes Companion Pull
+async function getLiveAILinerNotes() {
+    const provider = localStorage.getItem('ai_provider') || 'openai';
+    const key = localStorage.getItem('ai_key');
+    const btn = document.getElementById('live-ai-notes-btn');
+    const textEl = document.getElementById('live-ai-notes-text');
+
+    if (!key) {
+        btn.innerText = "Key missing! Set in AI tab.";
+        return;
+    }
+
+    if (!currentPlayingTrackName || !currentPlayingArtistName) return;
+
+    btn.disabled = true;
+    btn.innerText = "Fetching Liner Notes...";
+    textEl.innerHTML = `<span class="animate-pulse">Retrieving records context...</span>`;
+    textEl.classList.remove('hidden');
+
+    const promptText = `Provide exactly one interesting 3-sentence music trivia/history fact about the song "${currentPlayingTrackName}" by ${currentPlayingArtistName}. Respond only with the trivia paragraph.`;
+
+    try {
+        let responseText = "";
+        if (provider === 'openai') {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + key,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [{ role: "user", content: promptText }]
+                })
+            });
+            if (response.ok) {
+                const resData = await response.json();
+                responseText = resData.choices[0]?.message?.content;
+            }
+        } else if (provider === 'gemini') {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
+            });
+            if (response.ok) {
+                const resData = await response.json();
+                responseText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+            }
+        }
+
+        textEl.innerText = responseText || "No context found.";
+        btn.classList.add('hidden'); // Hide button once successfully retrieved
+    } catch (e) {
+        textEl.innerText = `Could not fetch context: ${e.message}`;
+        btn.disabled = false;
+        btn.innerText = "📖 Retry AI Liner Notes";
+    }
+}
+
+// Spotify artist-loop breaker: Injects contrasting genre artists into active player queue
+async function breakArtistLoop() {
+    const token = await getValidToken();
+    if (!token || rawTracksCache.length === 0) return;
+
+    let currentArtistName = "";
+    try {
+        const response = await fetch('https://api.spotify.com/v1/me/player', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (response.ok && response.status !== 204) {
+            const data = await response.json();
+            currentArtistName = data.item?.artists[0]?.name || "";
+        }
+    } catch (e) { 
+        console.error(e); 
+    }
+
+    // Filter recently played cache for 3 tracks with completely different artists
+    const contrastingTracks = [];
+    const seenArtists = new Set([currentArtistName]);
+
+    for (let item of rawTracksCache) {
+        const track = item.track;
+        if (!track) continue;
+        const artist = track.artists[0]?.name;
+        if (artist && !seenArtists.has(artist)) {
+            contrastingTracks.push(track);
+            seenArtists.add(artist);
+            if (contrastingTracks.length >= 3) break;
+        }
+    }
+
+    if (contrastingTracks.length === 0) {
+        showUIStatus("Could not identify contrasting track profiles in recent history.", true);
+        return;
+    }
+
+    // Queue tracks sequentially to force playback variety
+    let successCount = 0;
+    for (let track of contrastingTracks) {
+        const success = await addToSpotifyQueue(track.uri);
+        if (success) successCount++;
+    }
+
+    if (successCount > 0) {
+        showUIStatus(`Loop Breaker Activated! Successfully queued ${successCount} contrasting tracks into your session.`, false);
+    } else {
+        showUIStatus("Vibe Injection failed. Ensure Spotify has an active playback session on your device.", true);
+    }
 }
 
 async function toggleLivePlayback() {
@@ -402,7 +541,6 @@ function getAbsoluteTime(playedAtString) {
     return playedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-// Compute Haze metrics based on real genre data (ambient, lo-fi, chill, shoegaze, dream pop, psychedelic, reggae)
 function calculateBakedIndicator(items, genreCounts) {
     let chillPoints = 0;
     
@@ -422,7 +560,6 @@ function calculateBakedIndicator(items, genreCounts) {
         ) {
             chillPoints++;
         } else if (item.track?.popularity < 45) {
-            // Count rare/indie tracks as atmospheric
             chillPoints += 0.5;
         }
     });
@@ -464,7 +601,6 @@ function processFactualMetrics(items) {
     const totalMinutes = Math.round(totalDurationMs / 60000);
     statRuntime.innerText = `${totalMinutes} min`;
 
-    // Cool Metric: Underground index (Inverse of popularity)
     const avgPopularity = items.length > 0 ? Math.round(totalPopularity / items.length) : 0;
     const undergroundScore = 100 - avgPopularity;
     statIndie.innerText = `${undergroundScore}%`;
@@ -472,7 +608,6 @@ function processFactualMetrics(items) {
     const uniqueGenres = Object.keys(genreCounts).length;
     statGenresCount.innerText = `${uniqueGenres}`;
 
-    // Computes genuine haze metric
     statHaze.innerText = calculateBakedIndicator(items, genreCounts);
 
     chronologically.forEach((item, index) => {
@@ -530,27 +665,21 @@ function processFactualMetrics(items) {
                 
         card.innerHTML = `
             <div class="flex items-start justify-between space-x-3 min-w-0">
-                <div class="flex items-center space-x-3 min-w-0 flex-1">
-                    <img src="${albumArt}" class="w-11 h-11 rounded shadow-md object-cover flex-shrink-0 bg-zinc-900">
-                    <div class="min-w-0 flex-1">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <img src="${albumArt}" class="w-11 h-11 rounded shadow-md object-cover flex-shrink-0">
+                    <div class="min-w-0">
                         <p class="font-bold text-white truncate text-xs">${trackName}</p>
                         <p class="text-[10px] text-zinc-400 truncate">${artistName}</p>
-                        <span class="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider block mt-1">${relativeTime}</span>
+                        <div class="flex items-center space-x-1.5 mt-0.5">
+                            <span class="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider block">${relativeTime}</span>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Quick tap tools (Controls playback natively on device) -->
-                <div class="flex items-center space-x-1.5 flex-shrink-0" onclick="event.stopPropagation()">
-                    <button onclick="handleQuickQueue(event, '${track.uri}')" class="w-7 h-7 rounded-full bg-zinc-950 border border-zinc-850 hover:bg-zinc-800 flex items-center justify-center transition" title="Add directly to Queue">
-                        <svg class="w-3.5 h-3.5 fill-current text-zinc-400" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                    </button>
-                    <button class="card-play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-700 text-white flex items-center justify-center transition" title="Play on active Spotify Device">
-                        <svg class="w-2.5 h-2.5 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    </button>
-                </div>
+                <button class="play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-700 active:scale-90 text-white flex items-center justify-center transition">
+                    <svg class="w-2.5 h-2.5 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </button>
             </div>
 
-            <!-- Slide to Queue controller with fallback instructions -->
             <div class="slider-container relative w-full h-8 bg-zinc-950 rounded-full border border-zinc-800/80 overflow-hidden mt-3.5 select-none flex items-center justify-center pointer-events-auto">
                 <span class="text-[9px] text-zinc-500 font-extrabold uppercase tracking-widest slider-text">Slide to Queue</span>
                 <div class="absolute left-0 top-0 bottom-0 w-8 bg-emerald-500 rounded-full flex items-center justify-center cursor-pointer transition-colors active:scale-95 slider-handle">
@@ -566,7 +695,7 @@ function processFactualMetrics(items) {
             openModal(track.id, mainArtistId, trackName, artistName, albumArt, track.album?.name, track.album?.release_date, track.popularity, item.played_at);
         });
 
-        const cardPlayBtn = card.querySelector('.card-play-btn');
+        const cardPlayBtn = card.querySelector('.play-btn');
         cardPlayBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             playTrackOnSpotify(track.uri);
@@ -582,7 +711,6 @@ function processFactualMetrics(items) {
     trackCount.innerText = `${items.length} tracks`;
 }
 
-// Tap backup for queuing
 async function handleQuickQueue(event, trackUri) {
     event.stopPropagation();
     const btn = event.currentTarget;
@@ -600,7 +728,6 @@ async function handleQuickQueue(event, trackUri) {
     }, 3000);
 }
 
-// Slide drag implementation
 function initSlider(e, uri) {
     e.preventDefault();
     isSliding = true;
@@ -759,7 +886,7 @@ function filterTracks() {
 }
 
 function openModal(trackId, artistId, title, artist, artUrl, albumName, releaseDate, popularity, playedAt) {
-    activeModalTrackId = trackId; // Store active target track
+    activeModalTrackId = trackId; 
 
     const genres = globalArtistGenres[artistId] || [];
 
@@ -772,7 +899,7 @@ function openModal(trackId, artistId, title, artist, artUrl, albumName, releaseD
     modalPopularityElement.innerText = `${popularity}%`;
     modalTimestamp.innerText = `${new Date(playedAt).toLocaleString()}`;
 
-    // Reset single track analysis panel in modal
+    // Reset single track analysis panel inside modal
     document.getElementById('modal-ai-result').classList.add('hidden');
     document.getElementById('modal-ai-btn').disabled = false;
     document.getElementById('modal-ai-btn').innerText = "🤖 Query AI DJ for Track Insights";
@@ -811,7 +938,6 @@ function generateAIPrivacyClear() {
     showUIStatus("AI credentials cleared from local environment.", false);
 }
 
-// On-Demand targeted song analysis (BPM, Keys, Trivia facts) returning clean structures
 async function runSingleTrackAnalysis() {
     const provider = localStorage.getItem('ai_provider') || 'openai';
     const key = localStorage.getItem('ai_key');
@@ -828,7 +954,6 @@ async function runSingleTrackAnalysis() {
     runBtn.disabled = true;
     runBtn.innerText = "Analyzing Track Layers...";
 
-    // Fetch the target song metadata from cached objects
     const matchedItem = rawTracksCache.find(item => item.track?.id === activeModalTrackId);
     if (!matchedItem) {
         runBtn.innerText = "Audit Failed: Metadata missing.";
@@ -912,7 +1037,7 @@ Respond ONLY with a valid, parseable JSON object matching this schema. Do not wr
         document.getElementById('modal-ai-mix').innerText = parsed.mix_tip || '--';
 
         resultBox.classList.remove('hidden');
-        runBtn.classList.add('hidden'); // Hide query button once successfully analyzed
+        runBtn.classList.add('hidden'); 
 
     } catch (err) {
         runBtn.innerText = `Fetch failed: ${err.message}`;
@@ -920,7 +1045,6 @@ Respond ONLY with a valid, parseable JSON object matching this schema. Do not wr
     }
 }
 
-// Full audit logs analysis structured visually as clean UI cards instead of generic dumps
 async function runAIAuditor() {
     const provider = localStorage.getItem('ai_provider') || 'openai';
     const key = localStorage.getItem('ai_key');
@@ -1024,11 +1148,10 @@ Respond ONLY with a valid, parseable JSON object. Do not include markdown format
 
         const parsed = JSON.parse(responseText);
 
-        // Render AI analysis inside visual card components
         let htmlContent = `
             <div class="bg-zinc-900/40 p-4 border border-zinc-800 rounded-xl space-y-2">
                 <h4 class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Overall Musicologist Critique</h4>
-                <p class="text-zinc-200 text-xs leading-relaxed leading-relaxed font-mono">${parsed.critique || 'No audit returned.'}</p>
+                <p class="text-zinc-200 text-xs leading-relaxed font-mono">${parsed.critique || 'No audit returned.'}</p>
             </div>
             
             <div class="space-y-2.5">
@@ -1052,7 +1175,6 @@ Respond ONLY with a valid, parseable JSON object. Do not include markdown format
         htmlContent += `</div>`;
         outContainer.innerHTML = htmlContent;
 
-        // Toggle UI engine status
         document.getElementById('hydration-badge').innerText = "AI CO-DJ ENGAGED";
         document.getElementById('hydration-badge').className = "text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse";
 
@@ -1062,108 +1184,6 @@ Respond ONLY with a valid, parseable JSON object. Do not include markdown format
         runBtn.disabled = false;
         runBtn.innerText = "Analyze All Tracks";
     }
-}
-
-async function generateVibePlaylist(moodProfile) {
-    const token = await getValidToken();
-    if (!token || rawTracksCache.length === 0) return;
-
-    let filteredUris = [];
-    let playlistTitle = "StreamPulse Compilation";
-    let playlistDesc = "History session compiled by StreamPulse.";
-
-    if (moodProfile === 'energy') {
-        filteredUris = rawTracksCache
-            .filter(item => item.track?.popularity > 70)
-            .map(item => item.track?.uri)
-            .filter(uri => uri);
-        playlistTitle = "StreamPulse: Peak Energy 🔥";
-        playlistDesc = `Upbeat sessions over 70% popularity compiled on ${new Date().toLocaleDateString()}.`;
-    } else if (moodProfile === 'indie') {
-        filteredUris = rawTracksCache
-            .filter(item => item.track?.popularity <= 60)
-            .map(item => item.track?.uri)
-            .filter(uri => uri);
-        playlistTitle = "StreamPulse: Indie & Deep Cuts ☕";
-        playlistDesc = `Deep scrobble cuts under 60% popularity compiled on ${new Date().toLocaleDateString()}.`;
-    } else if (moodProfile === 'retro') {
-        filteredUris = rawTracksCache
-            .filter(item => {
-                const year = new Date(item.track?.album?.release_date).getFullYear();
-                return year && year < 2020;
-            })
-            .map(item => item.track?.uri)
-            .filter(uri => uri);
-        playlistTitle = "StreamPulse: Classic Golden Eras ⏳";
-        playlistDesc = `Timeless releases pre-2020 compiled on ${new Date().toLocaleDateString()}.`;
-    } else {
-        filteredUris = loadedTrackUris;
-    }
-
-    if (filteredUris.length === 0) {
-        showUIStatus("Filter warning: No tracks match the requirements of this compilation mood.", true);
-        return;
-    }
-
-    try {
-        const meResponse = await fetch('https://api.spotify.com/v1/me', {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
-        const meData = await meResponse.json();
-        const userId = meData.id;
-
-        const createPlaylistResponse = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: playlistTitle,
-                description: playlistDesc,
-                public: true
-            })
-        });
-        const playlistData = await createPlaylistResponse.json();
-        const playlistId = playlistData.id;
-
-        await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ uris: filteredUris })
-        });
-
-        showUIStatus(`Created compilation playlist "${playlistTitle}" with ${filteredUris.length} tracks.`, false);
-    } catch (err) {
-        showUIStatus("Playlist Engine Error: " + err.message);
-    }
-}
-
-function renderEmptyState() {
-    statRuntime.innerText = "0 min";
-    statIndie.innerText = "0%";
-    statGenresCount.innerText = "0";
-    statHaze.innerText = "Unknown";
-    timelineContainer.innerHTML = `<div class="py-4 text-center text-zinc-500 text-xs">No scrobbles audited. Stream music on your account and return.</div>`;
-}
-
-async function loginWithSpotifyClick() {
-    const verifier = generateRandomString(128);
-    localStorage.setItem('code_verifier', verifier);
-    const challenge = await generateCodeChallenge(verifier);
-            
-    const params = new URLSearchParams({
-        response_type: 'code',
-        client_id: CLIENT_ID,
-        scope: SCOPE,
-        redirect_uri: REDIRECT_URI,
-        code_challenge_method: 'S256',
-        code_challenge: challenge
-    });
-    window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
 }
 
 async function exchangeCodeForToken(code) {
