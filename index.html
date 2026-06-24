@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #09090b; color: #f4f4f5; }
+        body { background-color: #09090b; color: #f4f4f5; transition: filter 0.3s ease; }
         .spotify-green { color: #1DB954; }
         .spotify-bg { background-color: #1DB954; }
         .spotify-bg:hover { background-color: #1ed760; }
@@ -20,18 +20,32 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #09090b; }
         ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+        
+        /* Night Shift amber simulation */
+        .night-shift {
+            filter: sepia(0.35) brightness(0.8) contrast(0.95);
+        }
     </style>
 </head>
 <body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none relative pb-32">
+
+    <!-- Night Shift Blend Overlay -->
+    <div id="night-shift-overlay" class="fixed inset-0 bg-amber-500/5 pointer-events-none z-50 mix-blend-multiply transition-opacity duration-300 opacity-0"></div>
 
     <!-- Premium Background Gradient Overlay -->
     <div class="fixed inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-black -z-10"></div>
 
     <!-- Header -->
     <header class="w-full max-w-4xl flex justify-between items-center py-4 border-b border-zinc-800/80 mb-6">
-        <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
+        <div class="flex items-center space-x-3">
+            <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
+            <span class="text-[9px] bg-zinc-800 text-zinc-400 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Connect-Only Mode</span>
+        </div>
         <div class="flex items-center space-x-2">
-            <button id="pwa-install-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-semibold px-4 py-2 rounded-full transition hidden">
+            <button id="night-shift-btn" onclick="toggleNightShift()" class="bg-zinc-800 hover:bg-zinc-750 text-amber-400 text-xs font-semibold px-3 py-2 rounded-full transition" title="Eye-strain Night Dimmer">
+                🌙 Night Shift: Off
+            </button>
+            <button id="pwa-install-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-semibold px-3 py-2 rounded-full transition hidden">
                 Install App
             </button>
             <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
@@ -51,18 +65,60 @@
 
         <!-- Landing View -->
         <div id="landing-view" class="text-center my-16 max-w-md hidden">
-            <h2 class="text-3xl font-extrabold mb-4">Real-time Spotify Auditing.</h2>
-            <p class="text-zinc-400 mb-8 text-sm">A developer-grade dashboard displaying precise playback history logs, gap durations, and dynamic queue controls.</p>
+            <h2 class="text-3xl font-extrabold mb-4">Factual Spotify Auditing.</h2>
+            <p class="text-zinc-400 mb-8 text-sm">A developer-grade dashboard displaying precise playback history logs, gap durations, and dynamic queue controls linked directly to your Spotify session.</p>
             <button onclick="loginWithSpotifyClick()" class="spotify-bg text-black font-bold text-base px-8 py-4 rounded-full shadow-lg transition">
                 Connect Spotify Account
             </button>
         </div>
 
         <!-- Dashboard View -->
-        <div id="dashboard-view" class="w-full hidden">
+        <div id="dashboard-view" class="w-full hidden space-y-6">
             
+            <!-- Realtime Spotify Active Playback Widget -->
+            <div id="live-playback-widget" class="w-full bg-zinc-950/90 border border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_15px_rgba(16,185,129,0.05)] hidden">
+                <div class="flex items-center space-x-3 w-full sm:w-auto">
+                    <div class="relative flex-shrink-0">
+                        <img id="live-art" class="w-12 h-12 rounded-lg object-cover bg-zinc-900" src="" alt="Album Art">
+                        <span class="absolute -top-1 -left-1 flex h-3.5 w-3.5">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-extrabold uppercase tracking-widest">Live Now</span>
+                            <span id="live-device" class="text-[10px] text-zinc-500 truncate">Device</span>
+                        </div>
+                        <p id="live-title" class="font-bold text-white text-sm truncate mt-0.5">Song Title</p>
+                        <p id="live-artist" class="text-xs text-zinc-400 truncate">Artist Name</p>
+                    </div>
+                </div>
+
+                <!-- Progress Bar & Continuous Time Status (Factual & Under 30s updates) -->
+                <div class="w-full sm:max-w-xs flex flex-col items-end">
+                    <span id="live-time" class="text-[10px] text-zinc-400 font-mono">0:00 / 0:00</span>
+                    <div class="w-full bg-zinc-900 h-1.5 rounded-full mt-1.5 overflow-hidden border border-zinc-800">
+                        <div id="live-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-1000 linear"></div>
+                    </div>
+                </div>
+
+                <!-- Hardware controls routed natively to Spotify App -->
+                <div class="flex items-center space-x-3 flex-shrink-0">
+                    <button onclick="skipLivePrevious()" class="p-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white rounded-full transition active:scale-90" title="Previous Track">
+                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg>
+                    </button>
+                    <button onclick="toggleLivePlayback()" class="p-2.5 bg-white text-black hover:bg-zinc-200 rounded-full transition active:scale-90" title="Play/Pause">
+                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" id="live-play-pause-icon"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <button onclick="skipLiveNext()" class="p-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white rounded-full transition active:scale-90" title="Next Track">
+                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
+                    </button>
+                </div>
+            </div>
+
             <!-- Navigation Switcher -->
-            <nav class="flex space-x-1 bg-zinc-900/60 p-1 rounded-xl mb-6 w-full max-w-md mx-auto border border-zinc-800/60">
+            <nav class="flex space-x-1 bg-zinc-900/60 p-1 rounded-xl w-full max-w-md mx-auto border border-zinc-800/60">
                 <button onclick="switchTab('hub')" id="tab-btn-hub" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800">
                     📊 Listening Logs
                 </button>
@@ -96,15 +152,26 @@
                     </div>
                 </div>
 
-                <!-- Playlist Compiler -->
-                <div class="w-full card-bg rounded-xl p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div class="text-center sm:text-left">
-                        <h3 class="font-bold text-white text-sm">Vibe Compiler Engine</h3>
-                        <p class="text-xs text-zinc-400 mt-0.5">Directly bundle these recent tracks into a public compilation playlist on your profile.</p>
+                <!-- Playlist Compiling profiles -->
+                <div class="w-full card-bg rounded-xl p-5 space-y-4">
+                    <div>
+                        <h3 class="font-bold text-white text-sm">Vibe Compiler Hub</h3>
+                        <p class="text-xs text-zinc-400 mt-0.5">Directly bundle subsets of your tracked scrobbles into public mood sessions in your library.</p>
                     </div>
-                    <button id="playlist-btn" onclick="generateVibePlaylist()" class="bg-white hover:bg-zinc-200 text-black text-xs font-bold px-5 py-3 rounded-full transition shadow-md whitespace-nowrap">
-                        Compile Playlist
-                    </button>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button onclick="generateVibePlaylist('energy')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold p-3 rounded-lg transition text-left flex items-center justify-between">
+                            <span>🔥 Peak Energy Mix <p class="text-[9px] text-zinc-500 font-normal mt-0.5">Popularity > 70%</p></span>
+                            <span class="text-emerald-500">➔</span>
+                        </button>
+                        <button onclick="generateVibePlaylist('indie')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold p-3 rounded-lg transition text-left flex items-center justify-between">
+                            <span>☕ Indie & Deep Cuts <p class="text-[9px] text-zinc-500 font-normal mt-0.5">Popularity ≤ 60%</p></span>
+                            <span class="text-emerald-500">➔</span>
+                        </button>
+                        <button onclick="generateVibePlaylist('retro')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold p-3 rounded-lg transition text-left flex items-center justify-between">
+                            <span>⏳ Classic Golden Eras <p class="text-[9px] text-zinc-500 font-normal mt-0.5">Released pre-2020</p></span>
+                            <span class="text-emerald-500">➔</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- PLAYBACK LOG TIMELINE -->
@@ -145,7 +212,7 @@
                             <label class="block text-xs font-bold uppercase text-zinc-500 mb-1.5">AI Provider</label>
                             <select id="ai-provider" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-zinc-700">
                                 <option value="openai">OpenAI (GPT-4o-mini)</option>
-                                <option value="gemini">Google Gemini (Gemini 1.5 Flash)</option>
+                                <option value="gemini">Google Gemini (Gemini 2.5 Flash)</option>
                             </select>
                         </div>
                         <div>
@@ -223,35 +290,11 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
         </div>
     </div>
 
-    <!-- Sticky Media Preview Player -->
-    <div id="sticky-player" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-2xl px-4 py-3 flex items-center justify-between shadow-2xl z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
-        <div class="flex items-center space-x-3 min-w-0 flex-1">
-            <img id="player-img" class="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-zinc-850">
-            <div class="min-w-0 flex-1">
-                <p id="player-title" class="font-bold text-white text-xs truncate">Track Title</p>
-                <p id="player-artist" class="text-[10px] text-zinc-400 truncate">Artist Name</p>
-                <div class="w-full bg-zinc-800 h-1 rounded-full mt-1.5 overflow-hidden">
-                    <div id="player-progress" class="bg-emerald-500 h-full w-0 transition-all duration-100 linear"></div>
-                </div>
-            </div>
-        </div>
-        <div class="flex items-center space-x-2 ml-3">
-            <button id="player-play-pause-btn" onclick="togglePlayerPlayback()" class="w-8 h-8 rounded-full bg-white hover:bg-zinc-200 text-black flex items-center justify-center transition active:scale-95">
-                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" id="player-play-icon"><path d="M8 5v14l11-7z"/></svg>
-                <svg class="w-3.5 h-3.5 fill-current hidden" viewBox="0 0 24 24" id="player-pause-icon"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-            </button>
-            <a id="player-spotify-link" href="#" target="_blank" class="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center transition" title="Open in Spotify">
-                <svg class="w-4 h-4 fill-current spotify-green" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.565.387-.86.207-2.377-1.454-5.37-1.783-8.893-.982-.336.075-.67-.136-.746-.472-.076-.336.135-.67.472-.746 3.847-.878 7.144-.495 9.82 1.144.296.18.387.563.207.86zm1.224-2.72c-.226.367-.707.487-1.074.262-2.717-1.67-6.862-2.155-10.072-1.18-.413.125-.847-.11-1.01-.52-.124-.412.11-.847.52-1.012 3.666-1.112 8.23-.574 11.374 1.36.368.225.488.707.262 1.074zm.107-2.822C14.492 8.7 8.822 8.51 5.545 9.504a1.002 1.002 0 01-1.25-.664 1.002 1.002 0 01.664-1.251c3.76-1.141 10.024-.925 14.07 1.48a1 1 0 11-1.022 1.718z"/></svg>
-            </a>
-            <button onclick="closeStickyPlayer()" class="text-zinc-400 hover:text-white text-lg font-bold p-1">&times;</button>
-        </div>
-    </div>
-
     <!-- MAIN JAVASCRIPT CODE -->
     <script>
         const CLIENT_ID = '997e4ee06e624c7aaf77a45f30e74394'; 
         const REDIRECT_URI = window.location.origin + window.location.pathname; 
-        const SCOPE = 'user-read-recently-played playlist-modify-public user-modify-playback-state';
+        const SCOPE = 'user-read-recently-played playlist-modify-public user-modify-playback-state user-read-currently-playing user-read-playback-state';
 
         const logoutBtn = document.getElementById('logout-btn');
         const pwaInstallBtn = document.getElementById('pwa-install-btn');
@@ -261,7 +304,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
         const trackCount = document.getElementById('track-count');
         const errorBanner = document.getElementById('error-banner');
         const errorMessage = document.getElementById('error-message');
-        const playlistBtn = document.getElementById('playlist-btn');
 
         // Dynamic Logs Layout Elements
         const statCount = document.getElementById('stat-count');
@@ -288,14 +330,18 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
         let startX = 0;
         let sliderWidth = 0;
         let activeUri = '';
-        let currentSlideX = 0; // State-based drag tracking instead of reading computed transform matrices
+        let currentSlideX = 0;
+
+        // Playback Polling States
+        let livePlaybackInterval = null;
+        let localPlaybackTimeTracker = null;
+        let currentPlaybackProgressMs = 0;
+        let currentPlaybackDurationMs = 0;
+        let currentPlaybackIsPlaying = false;
 
         let globalArtistGenres = {};
         let loadedTrackUris = [];
         let rawTracksCache = [];
-        let activeAudio = null;
-        let activeAudioTrackId = null;
-        let playerInterval = null;
         let deferredPrompt;
 
         function showUIStatus(msg, isError = true) {
@@ -308,6 +354,24 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                 errorBanner.classList.add('border-zinc-800/60', 'text-zinc-300');
             }
             errorBanner.classList.remove('hidden');
+        }
+
+        function toggleNightShift() {
+            const body = document.body;
+            const overlay = document.getElementById('night-shift-overlay');
+            const btn = document.getElementById('night-shift-btn');
+            
+            if (body.classList.contains('night-shift')) {
+                body.classList.remove('night-shift');
+                overlay.classList.add('opacity-0');
+                overlay.classList.remove('opacity-100');
+                btn.innerText = "🌙 Night Shift: Off";
+            } else {
+                body.classList.add('night-shift');
+                overlay.classList.remove('opacity-0');
+                overlay.classList.add('opacity-100');
+                btn.innerText = "🌙 Night Shift: On";
+            }
         }
 
         function switchTab(tabName) {
@@ -328,6 +392,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             activeBtn.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800";
         }
 
+        // PWA listener
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -340,6 +405,16 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                 }
                 deferredPrompt = null;
             };
+        });
+
+        // Ensure form inputs exist in DOM completely before loading configs
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedProvider = localStorage.getItem('ai_provider') || 'openai';
+            const savedKey = localStorage.getItem('ai_key') || '';
+            const provEl = document.getElementById('ai-provider');
+            const keyEl = document.getElementById('ai-key');
+            if (provEl) provEl.value = savedProvider;
+            if (keyEl) keyEl.value = savedKey;
         });
 
         async function init() {
@@ -358,14 +433,10 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                 }
             }
 
-            const savedProvider = localStorage.getItem('ai_provider') || 'openai';
-            const savedKey = localStorage.getItem('ai_key') || '';
-            document.getElementById('ai-provider').value = savedProvider;
-            document.getElementById('ai-key').value = savedKey;
-
             const token = await getValidToken();
             if (token) { 
                 showDashboard(token); 
+                startLivePlaybackPolling(); // Poll the Spotify currently-playing session automatically
             } else { 
                 logout();
             }
@@ -373,13 +444,9 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
 
         function logout() {
             localStorage.clear();
+            if (livePlaybackInterval) clearInterval(livePlaybackInterval);
+            if (localPlaybackTimeTracker) clearInterval(localPlaybackTimeTracker);
             showLanding();
-        }
-
-        function showLanding() {
-            landingView.classList.remove('hidden');
-            dashboardView.classList.add('hidden');
-            logoutBtn.classList.add('hidden');
         }
 
         async function showDashboard(token) {
@@ -451,6 +518,152 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             } catch (err) { 
                 showUIStatus(err.message);
                 renderEmptyState();
+            }
+        }
+
+        // Live Polls Check Spotify Device Status under 30 seconds
+        function startLivePlaybackPolling() {
+            if (livePlaybackInterval) clearInterval(livePlaybackInterval);
+            pollLivePlayback(); 
+            livePlaybackInterval = setInterval(pollLivePlayback, 5000); 
+        }
+
+        async function pollLivePlayback() {
+            const token = await getValidToken();
+            if (!token) return;
+
+            try {
+                const response = await fetch('https://api.spotify.com/v1/me/player', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.status === 204) {
+                    hideLivePlaybackWidget();
+                    return;
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.item) {
+                        showLivePlaybackWidget(data);
+                    } else {
+                        hideLivePlaybackWidget();
+                    }
+                }
+            } catch (e) {
+                console.error("Playback Polling Error:", e);
+            }
+        }
+
+        function showLivePlaybackWidget(data) {
+            const widget = document.getElementById('live-playback-widget');
+            const titleEl = document.getElementById('live-title');
+            const artistEl = document.getElementById('live-artist');
+            const artEl = document.getElementById('live-art');
+            const deviceEl = document.getElementById('live-device');
+            const playPauseIcon = document.getElementById('live-play-pause-icon');
+
+            widget.classList.remove('hidden');
+
+            const track = data.item;
+            titleEl.innerText = track.name;
+            artistEl.innerText = track.artists.map(a => a.name).join(', ');
+            artEl.src = track.album?.images[2]?.url || track.album?.images[1]?.url || 'https://via.placeholder.com/80';
+            deviceEl.innerText = `Connected: ${data.device?.name || 'Unknown Device'}`;
+
+            currentPlaybackProgressMs = data.progress_ms || 0;
+            currentPlaybackDurationMs = track.duration_ms || 0;
+            currentPlaybackIsPlaying = data.is_playing;
+
+            updateLiveProgressUI();
+
+            if (localPlaybackTimeTracker) clearInterval(localPlaybackTimeTracker);
+
+            // Continuously update timer second-by-second to track active status
+            if (currentPlaybackIsPlaying) {
+                localPlaybackTimeTracker = setInterval(() => {
+                    currentPlaybackProgressMs += 1000;
+                    if (currentPlaybackProgressMs > currentPlaybackDurationMs) {
+                        currentPlaybackProgressMs = currentPlaybackDurationMs;
+                        clearInterval(localPlaybackTimeTracker);
+                    }
+                    updateLiveProgressUI();
+                }, 1000);
+            }
+
+            if (currentPlaybackIsPlaying) {
+                playPauseIcon.innerHTML = `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
+            } else {
+                playPauseIcon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
+            }
+        }
+
+        function updateLiveProgressUI() {
+            const progressEl = document.getElementById('live-progress-bar');
+            const timeEl = document.getElementById('live-time');
+            
+            const pct = (currentPlaybackProgressMs / currentPlaybackDurationMs) * 100;
+            progressEl.style.width = `${Math.min(100, pct)}%`;
+
+            const format = (ms) => {
+                const s = Math.floor((ms / 1000) % 60);
+                const m = Math.floor(ms / 60000);
+                return `${m}:${s < 10 ? '0' : ''}${s}`;
+            };
+
+            timeEl.innerText = `${format(currentPlaybackProgressMs)} / ${format(currentPlaybackDurationMs)}`;
+        }
+
+        function hideLivePlaybackWidget() {
+            document.getElementById('live-playback-widget').classList.add('hidden');
+            if (localPlaybackTimeTracker) clearInterval(localPlaybackTimeTracker);
+        }
+
+        async function toggleLivePlayback() {
+            const token = await getValidToken();
+            if (!token) return;
+
+            const endpoint = currentPlaybackIsPlaying ? 'pause' : 'play';
+            try {
+                const response = await fetch(`https://api.spotify.com/v1/me/player/${endpoint}`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (response.status === 403) {
+                    showUIStatus("Spotify Premium session required to modify playback states from other apps.");
+                } else {
+                    pollLivePlayback();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function skipLiveNext() {
+            const token = await getValidToken();
+            if (!token) return;
+            try {
+                await fetch('https://api.spotify.com/v1/me/player/next', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                pollLivePlayback();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function skipLivePrevious() {
+            const token = await getValidToken();
+            if (!token) return;
+            try {
+                await fetch('https://api.spotify.com/v1/me/player/previous', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                pollLivePlayback();
+            } catch (e) {
+                console.error(e);
             }
         }
 
@@ -549,7 +762,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                 timelineContainer.prepend(logNode);
             });
 
-            // Event listener assignment to avoid quote mismatch runtime issues
+            // standard Event delegation prevents inline escaping failures
             items.forEach((item, index) => {
                 const track = item.track;
                 const relativeTime = getRelativeTime(item.played_at);
@@ -557,7 +770,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                 const trackName = track.name;
                 const artistName = track.artists.map(a => a.name).join(', ');
                 const mainArtistId = track.artists[0]?.id;
-                const previewUrl = track.preview_url || '';
 
                 const card = document.createElement('div');
                 card.className = 'card-bg rounded-xl p-3.5 flex flex-col justify-between cursor-pointer transition duration-150 transform active:scale-[0.99] relative overflow-hidden';
@@ -572,7 +784,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                                 <p class="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider mt-1 block">${relativeTime}</p>
                             </div>
                         </div>
-                        <button class="play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-800 flex-shrink-0 text-white flex items-center justify-center transition">
+                        <button class="play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-700 active:scale-90 text-white flex items-center justify-center transition" title="Play directly on Spotify Device">
                             <svg class="w-2.5 h-2.5 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </button>
                     </div>
@@ -596,7 +808,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                 const playBtn = card.querySelector('.play-btn');
                 playBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    playTrackPreview(track.id, trackName, artistName, albumArt, previewUrl);
+                    playTrackOnSpotify(track.uri);
                 });
 
                 const sliderHandle = card.querySelector('.slider-handle');
@@ -636,7 +848,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             let deltaX = clientX - startX;
             
             deltaX = Math.max(0, Math.min(deltaX, sliderWidth));
-            currentSlideX = deltaX; // Save tracking value locally
+            currentSlideX = deltaX; // save real coordinate state directly
             
             activeHandle.style.transform = `translateX(${deltaX}px)`;
             
@@ -699,6 +911,34 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             }, 200);
         }
 
+        // Active Player Track playback triggers
+        async function playTrackOnSpotify(trackUri) {
+            const token = await getValidToken();
+            if (!token) return;
+
+            try {
+                const response = await fetch('https://api.spotify.com/v1/me/player/play', {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ uris: [trackUri] })
+                });
+
+                if (response.status === 204) {
+                    pollLivePlayback(); // refresh the live card immediately
+                } else if (response.status === 404) {
+                    // Fallback to launching deep links directly if player connection is missing
+                    window.location.href = trackUri;
+                } else {
+                    window.location.href = trackUri;
+                }
+            } catch (err) {
+                window.location.href = trackUri;
+            }
+        }
+
         async function addToSpotifyQueue(trackUri) {
             const token = await getValidToken();
             if (!token) return false;
@@ -739,90 +979,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                 }
             });
             trackCount.innerText = `${visibleCount} match${visibleCount !== 1 ? 'es' : ''}`;
-        }
-
-        function handlePlayClick(event, trackId, title, artist, artUrl, previewUrl) {
-            event.stopPropagation();
-            playTrackPreview(trackId, title, artist, artUrl, previewUrl);
-        }
-
-        function playTrackPreview(trackId, title, artist, artUrl, previewUrl) {
-            if (activeAudio) {
-                activeAudio.pause();
-                clearInterval(playerInterval);
-            }
-
-            const player = document.getElementById('sticky-player');
-            const pImg = document.getElementById('player-img');
-            const pTitle = document.getElementById('player-title');
-            const pArtist = document.getElementById('player-artist');
-            const pLink = document.getElementById('player-spotify-link');
-            const pBar = document.getElementById('player-progress');
-            const playIcon = document.getElementById('player-play-icon');
-            const pauseIcon = document.getElementById('player-pause-icon');
-
-            pImg.src = artUrl;
-            pTitle.innerText = title;
-            pArtist.innerText = artist;
-            pLink.href = `https://open.spotify.com/track/${trackId}`;
-            pBar.style.width = '0%';
-
-            player.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
-
-            if (!previewUrl) {
-                pArtist.innerText = `${artist} (No Audio Preview)`;
-                activeAudio = null;
-                activeAudioTrackId = null;
-                playIcon.classList.remove('hidden');
-                pauseIcon.classList.add('hidden');
-                return;
-            }
-
-            activeAudio = new Audio(previewUrl);
-            activeAudioTrackId = trackId;
-            activeAudio.play();
-            
-            playIcon.classList.add('hidden');
-            pauseIcon.classList.remove('hidden');
-
-            playerInterval = setInterval(() => {
-                if (activeAudio && !activeAudio.paused) {
-                    const pct = (activeAudio.currentTime / activeAudio.duration) * 100;
-                    pBar.style.width = `${pct}%`;
-                }
-            }, 100);
-
-            activeAudio.onended = () => {
-                closeStickyPlayer();
-            };
-        }
-
-        function togglePlayerPlayback() {
-            if (!activeAudio) return;
-            const playIcon = document.getElementById('player-play-icon');
-            const pauseIcon = document.getElementById('player-pause-icon');
-
-            if (activeAudio.paused) {
-                activeAudio.play();
-                playIcon.classList.add('hidden');
-                pauseIcon.classList.remove('hidden');
-            } else {
-                activeAudio.pause();
-                playIcon.classList.remove('hidden');
-                pauseIcon.classList.add('hidden');
-            }
-        }
-
-        function closeStickyPlayer() {
-            if (activeAudio) {
-                activeAudio.pause();
-                activeAudio = null;
-                activeAudioTrackId = null;
-            }
-            clearInterval(playerInterval);
-            
-            const player = document.getElementById('sticky-player');
-            player.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
         }
 
         function openModal(trackId, artistId, title, artist, artUrl, albumName, releaseDate, popularity, playedAt) {
@@ -926,7 +1082,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                     const resData = await response.json();
                     responseText = resData.choices[0]?.message?.content || "No text generated.";
                 } else if (provider === 'gemini') {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -956,12 +1112,47 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             }
         }
 
-        async function generateVibePlaylist() {
+        // Advanced playlist generator based on dynamic scrobble filtering properties
+        async function generateVibePlaylist(moodProfile) {
             const token = await getValidToken();
-            if (!token || loadedTrackUris.length === 0) return;
+            if (!token || rawTracksCache.length === 0) return;
 
-            playlistBtn.disabled = true;
-            playlistBtn.innerText = "Creating...";
+            let filteredUris = [];
+            let playlistTitle = "StreamPulse Compilation";
+            let playlistDesc = "History session compiled by StreamPulse.";
+
+            if (moodProfile === 'energy') {
+                filteredUris = rawTracksCache
+                    .filter(item => item.track?.popularity > 70)
+                    .map(item => item.track?.uri)
+                    .filter(uri => uri);
+                playlistTitle = "StreamPulse: Peak Energy 🔥";
+                playlistDesc = `Upbeat sessions over 70% popularity compiled on ${new Date().toLocaleDateString()}.`;
+            } else if (moodProfile === 'indie') {
+                filteredUris = rawTracksCache
+                    .filter(item => item.track?.popularity <= 60)
+                    .map(item => item.track?.uri)
+                    .filter(uri => uri);
+                playlistTitle = "StreamPulse: Indie & Deep Cuts ☕";
+                playlistDesc = `Deep scrobble cuts under 60% popularity compiled on ${new Date().toLocaleDateString()}.`;
+            } else if (moodProfile === 'retro') {
+                filteredUris = rawTracksCache
+                    .filter(item => {
+                        const year = new Date(item.track?.album?.release_date).getFullYear();
+                        return year && year < 2020;
+                    })
+                    .map(item => item.track?.uri)
+                    .filter(uri => uri);
+                playlistTitle = "StreamPulse: Classic Golden Eras ⏳";
+                playlistDesc = `Timeless releases pre-2020 compiled on ${new Date().toLocaleDateString()}.`;
+            } else {
+                filteredUris = loadedTrackUris;
+            }
+
+            if (filteredUris.length === 0) {
+                showUIStatus("Filter warning: No tracks match the requirements of this compilation mood.", true);
+                return;
+            }
 
             try {
                 const meResponse = await fetch('https://api.spotify.com/v1/me', {
@@ -977,8 +1168,8 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        name: `StreamPulse Compiled Session`,
-                        description: `Compiled history log snapshot generated by StreamPulse on ${new Date().toLocaleDateString()}.`,
+                        name: playlistTitle,
+                        description: playlistDesc,
                         public: true
                     })
                 });
@@ -991,15 +1182,12 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                         'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ uris: loadedTrackUris })
+                    body: JSON.stringify({ uris: filteredUris })
                 });
 
-                showUIStatus(`Created compilation playlist "StreamPulse Compiled Session" in your library.`, false);
-                playlistBtn.innerText = "Compilation Complete!";
+                showUIStatus(`Created compilation playlist "${playlistTitle}" with ${filteredUris.length} tracks.`, false);
             } catch (err) {
                 showUIStatus("Playlist Engine Error: " + err.message);
-                playlistBtn.innerText = "Compile Playlist";
-                playlistBtn.disabled = false;
             }
         }
 
@@ -1042,94 +1230,3 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: params
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    throw new Error(`Token Exchange Failed: ${errData.error_description || response.statusText}`);
-                }
-
-                const data = await response.json();
-                saveTokens(data);
-                return true;
-            } catch (e) {
-                showUIStatus(e.message);
-                return false;
-            }
-        }
-
-        async function getValidToken() {
-            let token = localStorage.getItem('access_token');
-            const expiresAt = localStorage.getItem('expires_at');
-            const refreshToken = localStorage.getItem('refresh_token');
-
-            if (!token) return null;
-
-            if (expiresAt && Date.now() > (Number(expiresAt) - 60000)) {
-                if (refreshToken) {
-                    token = await refreshAccessToken(refreshToken);
-                } else {
-                    token = null;
-                }
-            }
-            return token;
-        }
-
-        async function refreshAccessToken(refreshToken) {
-            try {
-                const params = new URLSearchParams({
-                    client_id: CLIENT_ID,
-                    grant_type: 'refresh_token',
-                    refresh_token: refreshToken
-                });
-
-                const response = await fetch('https://accounts.spotify.com/api/token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: params
-                });
-
-                if (!response.ok) {
-                    throw new Error("Failed to refresh access token");
-                }
-
-                const data = await response.json();
-                saveTokens(data);
-                return data.access_token;
-            } catch (e) {
-                console.error("Session refresh error:", e);
-                return null;
-            }
-        }
-
-        function saveTokens(data) {
-            if (data.access_token) {
-                localStorage.setItem('access_token', data.access_token);
-                if (data.refresh_token) {
-                    localStorage.setItem('refresh_token', data.refresh_token);
-                }
-                if (data.expires_in) {
-                    const expiresAt = Date.now() + (data.expires_in * 1000);
-                    localStorage.setItem('expires_at', expiresAt);
-                }
-            }
-        }
-
-        function generateRandomString(length) {
-            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            const values = crypto.getRandomValues(new Uint8Array(length));
-            return Array.from(values, x => possible[x % possible.length]).join('');
-        }
-
-        async function generateCodeChallenge(codeVerifier) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(codeVerifier);
-            const digest = await crypto.subtle.digest('SHA-256', data);
-            return btoa(String.fromCharCode(...new Uint8Array(digest)))
-                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        }
-
-        init();
-    </script>
-</body>
-</html>
