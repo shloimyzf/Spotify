@@ -68,134 +68,182 @@
                 <button onclick="switchTab('insights')" id="tab-btn-insights" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white">
                     📈 Insights
                 </button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse Pro</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #09090b; color: #f4f4f5; }
+        .spotify-green { color: #1DB954; }
+        .spotify-bg { background-color: #1DB954; }
+        .spotify-bg:hover { background-color: #1ed760; }
+        .card-bg { background-color: #09090b; border: 1px solid #27272a; }
+        .card-bg:active { background-color: #18181b; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none relative pb-32">
+
+    <!-- Background Layer -->
+    <div class="fixed inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-black -z-10"></div>
+
+    <!-- Header -->
+    <header class="w-full max-w-4xl flex justify-between items-center py-4 border-b border-zinc-800/80 mb-6">
+        <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
+        <div class="flex items-center space-x-2">
+            <button id="pwa-install-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-semibold px-4 py-2 rounded-full transition hidden">
+                Install App
+            </button>
+            <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
+                Disconnect
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-4xl flex flex-col items-center w-full">
+        
+        <!-- Status/Error Banner -->
+        <div id="error-banner" class="w-full card-bg border-red-900/60 rounded-xl p-4 mb-6 text-red-400 text-sm hidden">
+            <p class="font-bold mb-1">System Status/Notification:</p>
+            <p id="error-message"></p>
+        </div>
+
+        <!-- Landing View -->
+        <div id="landing-view" class="text-center my-16 max-w-md hidden">
+            <h2 class="text-3xl font-extrabold mb-4">Real-time Spotify Auditing.</h2>
+            <p class="text-zinc-400 mb-8 text-sm">A developer-grade dashboard displaying precise playback history logs, gap durations, and dynamic queue controls.</p>
+            <button onclick="loginWithSpotifyClick()" class="spotify-bg text-black font-bold text-base px-8 py-4 rounded-full shadow-lg transition">
+                Connect Spotify Account
+            </button>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="w-full hidden">
+            
+            <!-- Navigation Switcher -->
+            <nav class="flex space-x-1 bg-zinc-900/60 p-1 rounded-xl mb-6 w-full max-w-md mx-auto border border-zinc-800/60">
+                <button onclick="switchTab('hub')" id="tab-btn-hub" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800">
+                    📊 Listening Logs
+                </button>
+                <button onclick="switchTab('tracks')" id="tab-btn-tracks" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white">
+                    🎵 Queue Controller
+                </button>
+                <button onclick="switchTab('ai')" id="tab-btn-ai" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white">
+                    🤖 AI Assistant
+                </button>
             </nav>
 
-            <!-- TAB 1: HUB -->
-            <div id="tab-content-hub" class="w-full">
-                <!-- Smart Features & Metrics Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px] relative overflow-hidden">
-                        <!-- Visual Orb Glow Background -->
-                        <div id="glow-orb" class="w-24 h-24 rounded-full absolute -top-8 -left-8 bg-gradient-to-r from-emerald-500 to-teal-500 blur-2xl opacity-10 transition-all duration-1000 animate-pulse"></div>
-                        <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1 z-10">Current Vibe</p>
-                        <p id="stat-vibe" class="text-sm font-bold spotify-green z-10">Analyzing...</p>
+            <!-- TAB 1: HUB & AUDIT LOGS -->
+            <div id="tab-content-hub" class="w-full space-y-6">
+                <!-- Precision Stats Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="card-bg rounded-xl p-4 text-center">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Loaded Volume</p>
+                        <p id="stat-count" class="text-lg font-extrabold text-white">Calculating...</p>
                     </div>
-                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
-                        <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Top Genres</p>
-                        <p id="stat-genres" class="text-xs font-bold text-white line-clamp-2">Analyzing...</p>
+                    <div class="card-bg rounded-xl p-4 text-center">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Audited Runtime</p>
+                        <p id="stat-runtime" class="text-lg font-extrabold text-white">Calculating...</p>
                     </div>
-                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
-                        <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Energy Level</p>
-                        <p id="stat-energy" class="text-sm font-bold text-white">Calculating...</p>
+                    <div class="card-bg rounded-xl p-4 text-center">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Average Popularity</p>
+                        <p id="stat-popularity" class="text-lg font-extrabold text-white">Calculating...</p>
                     </div>
-                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-center min-h-[100px]">
-                        <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Haze Factor</p>
-                        <p id="stat-baked" class="text-sm font-bold text-amber-500">Scanning...</p>
+                    <div class="card-bg rounded-xl p-4 text-center">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Top Shared Genre</p>
+                        <p id="stat-topgenre" class="text-xs font-extrabold text-emerald-400 truncate mt-1">Analyzing...</p>
                     </div>
                 </div>
 
-                <!-- Smart Action Controller -->
-                <div class="w-full card-bg rounded-xl p-5 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <!-- Playlist Compiler -->
+                <div class="w-full card-bg rounded-xl p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
                     <div class="text-center sm:text-left">
-                        <h3 class="font-bold text-white text-sm">Vibe Action Engine</h3>
-                        <p class="text-xs text-zinc-400 mt-0.5">Instantly compile these 50 tracks into an active session playlist inside your profile.</p>
+                        <h3 class="font-bold text-white text-sm">Vibe Compiler Engine</h3>
+                        <p class="text-xs text-zinc-400 mt-0.5">Directly bundle these recent tracks into a public compilation playlist on your profile.</p>
                     </div>
                     <button id="playlist-btn" onclick="generateVibePlaylist()" class="bg-white hover:bg-zinc-200 text-black text-xs font-bold px-5 py-3 rounded-full transition shadow-md whitespace-nowrap">
-                        Generate Vibe Playlist
+                        Compile Playlist
                     </button>
                 </div>
-                
-                <!-- Heuristic Engine Notice -->
-                <div id="engine-notice" class="w-full bg-zinc-900/20 border border-zinc-800/40 rounded-xl p-4 flex items-start space-x-3 text-xs text-zinc-400">
-                    <div class="flex-shrink-0 text-emerald-500 mt-0.5">
-                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                    </div>
-                    <div>
-                        <span class="font-semibold text-zinc-200">PulseEngine AI Analysis Active</span>: Intercepting deprecated audio metrics. Analyzing genre distributions, tempo grids, and metadata structures to model track properties locally with zero server lag.
+
+                <!-- PLAYBACK LOG TIMELINE -->
+                <div class="card-bg rounded-xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 tracking-wide uppercase text-zinc-400">Stream History Timeline Logs</h3>
+                    <div id="timeline-container" class="relative pl-6 border-l-2 border-zinc-800 space-y-6">
+                        <!-- Filled programmatically -->
                     </div>
                 </div>
             </div>
 
-            <!-- TAB 2: TRACKS -->
-            <div id="tab-content-tracks" class="w-full hidden">
-                <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3 w-full">
-                    <h2 class="text-lg font-semibold tracking-wide w-full sm:w-auto text-left">Recent History</h2>
+            <!-- TAB 2: QUEUE CONTROLLER -->
+            <div id="tab-content-tracks" class="w-full hidden space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-3 w-full">
+                    <div class="text-left w-full sm:w-auto">
+                        <h2 class="text-lg font-semibold tracking-wide">Interactive Stream Queue</h2>
+                        <p class="text-xs text-zinc-500">Slide the tracking indicator fully to the right to add any track directly to your active playback session.</p>
+                    </div>
                     <div class="flex items-center gap-2 w-full sm:w-auto">
-                        <input id="search-input" type="text" placeholder="Filter recent songs..." class="bg-zinc-900 border border-zinc-800 text-xs px-3 py-1.5 rounded-lg text-white w-full sm:w-48 focus:outline-none focus:border-zinc-700 transition" oninput="filterTracks()">
+                        <input id="search-input" type="text" placeholder="Filter tracked list..." class="bg-zinc-900 border border-zinc-800 text-xs px-3 py-1.5 rounded-lg text-white w-full sm:w-48 focus:outline-none focus:border-zinc-700 transition" oninput="filterTracks()">
                         <span id="track-count" class="text-xs text-zinc-400 bg-zinc-800 px-2.5 py-1.5 rounded-lg whitespace-nowrap">0 tracks</span>
                     </div>
                 </div>
-                <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                
+                <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
             </div>
 
-            <!-- TAB 3: INSIGHTS -->
-            <div id="tab-content-insights" class="w-full hidden space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    
-                    <!-- Popularity/Taste card -->
-                    <div class="card-bg rounded-xl p-5 flex flex-col justify-between">
+            <!-- TAB 3: AI ASSISTANT -->
+            <div id="tab-content-ai" class="w-full hidden space-y-4">
+                <div class="card-bg rounded-xl p-5 space-y-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Self-Hosted AI DJ Assistant</h2>
+                        <p class="text-xs text-zinc-400 mt-1">To get true musical metrics, analysis, and recommendations, securely enter your own AI endpoint token. Keys are processed strictly inside your browser's direct fetches.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <h3 class="text-xs font-bold text-zinc-500 mb-3 uppercase tracking-wider">Listening Taste Profile</h3>
-                            <div class="flex items-baseline space-x-2">
-                                <span id="popularity-val" class="text-4xl font-extrabold text-white">0%</span>
-                                <span class="text-xs text-zinc-500">Average Scrobble Popularity</span>
-                            </div>
-                            <p id="popularity-label" class="text-sm font-bold text-emerald-400 mt-3">Analyzing Taste...</p>
-                            <p id="popularity-desc" class="text-xs text-zinc-400 mt-1">Sorting metric variables.</p>
+                            <label class="block text-xs font-bold uppercase text-zinc-500 mb-1.5">AI Provider</label>
+                            <select id="ai-provider" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-zinc-700">
+                                <option value="openai">OpenAI (GPT-4o-mini)</option>
+                                <option value="gemini">Google Gemini (Gemini 1.5 Flash)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-zinc-500 mb-1.5">API Key / Token</label>
+                            <input id="ai-key" type="password" placeholder="sk-..." class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-zinc-700">
                         </div>
                     </div>
 
-                    <!-- Era Timeline breakdown -->
-                    <div class="card-bg rounded-xl p-5 space-y-3">
-                        <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Release Era Breakdown</h3>
-                        
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs font-semibold">
-                                <span class="text-zinc-300">2020s (Modern Beats)</span>
-                                <span id="era-2020s-val" class="text-white">0%</span>
-                            </div>
-                            <div class="w-full bg-zinc-800/40 h-1.5 rounded-full overflow-hidden">
-                                <div id="era-2020s-bar" class="bg-emerald-500 h-full w-0 transition-all duration-500"></div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs font-semibold">
-                                <span class="text-zinc-300">2010s (Retro Trends)</span>
-                                <span id="era-2010s-val" class="text-white">0%</span>
-                            </div>
-                            <div class="w-full bg-zinc-800/40 h-1.5 rounded-full overflow-hidden">
-                                <div id="era-2010s-bar" class="bg-teal-500 h-full w-0 transition-all duration-500"></div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs font-semibold">
-                                <span class="text-zinc-300">2000s (Vintage Anthems)</span>
-                                <span id="era-2000s-val" class="text-white">0%</span>
-                            </div>
-                            <div class="w-full bg-zinc-800/40 h-1.5 rounded-full overflow-hidden">
-                                <div id="era-2000s-bar" class="bg-indigo-500 h-full w-0 transition-all duration-500"></div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-1">
-                            <div class="flex justify-between text-xs font-semibold">
-                                <span class="text-zinc-300">Golden Classics</span>
-                                <span id="era-pre2000-val" class="text-white">0%</span>
-                            </div>
-                            <div class="w-full bg-zinc-800/40 h-1.5 rounded-full overflow-hidden">
-                                <div id="era-pre2000-bar" class="bg-pink-500 h-full w-0 transition-all duration-500"></div>
-                            </div>
-                        </div>
+                    <div class="flex space-x-2 pt-2">
+                        <button onclick="saveAIConfig()" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition">
+                            Save Config
+                        </button>
+                        <button onclick="generateAIPrivacyClear()" class="text-zinc-500 hover:text-zinc-300 text-xs px-2 py-2.5 transition">
+                            Clear Token
+                        </button>
                     </div>
                 </div>
 
-                <!-- Genre Tag distribution cloud -->
-                <div class="card-bg rounded-xl p-5">
-                    <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Listening Cloud tag index</h3>
-                    <div id="genre-cloud" class="flex flex-wrap gap-1.5">
-                        <span class="text-xs text-zinc-500 animate-pulse">Scanning track vectors...</span>
+                <div class="card-bg rounded-xl p-5 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Analysis Terminal</h3>
+                        <button id="ai-run-btn" onclick="runAIAuditor()" class="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold px-4 py-2.5 rounded-full transition shadow-md">
+                            Run Analysis
+                        </button>
+                    </div>
+
+                    <div id="ai-output" class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 text-zinc-300 font-mono text-xs whitespace-pre-wrap min-h-[150px] max-h-[400px] overflow-y-auto leading-relaxed">
+Waiting for execution prompt... Provide config and click "Run Analysis" to query the model on your active tracks.
                     </div>
                 </div>
             </div>
@@ -203,13 +251,13 @@
         </div>
     </main>
 
-    <!-- Visual detailed Metrics Modal -->
-    <div id="info-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200" onclick="handleOutsideModalClick(event)">
+    <!-- Unified Detail Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200" onclick="handleOutsideModalClick(event)">
         <div id="modal-container" class="card-bg w-full max-w-sm rounded-2xl p-6 relative transform scale-95 transition-transform duration-200">
             <button onclick="closeModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1">×</button>
             
             <div class="flex items-center space-x-4 mb-5">
-                <img id="modal-img" class="w-16 h-16 rounded-lg object-cover shadow-md">
+                <img id="modal-img" class="w-16 h-16 rounded-lg object-cover shadow-md bg-zinc-900">
                 <div class="min-w-0 flex-1">
                     <h3 id="modal-title" class="font-bold text-white text-base truncate">Song Title</h3>
                     <p id="modal-artist" class="text-sm text-zinc-400 truncate">Artist Name</p>
@@ -218,48 +266,35 @@
 
             <div class="space-y-4 text-sm">
                 <div class="border-b border-zinc-800 pb-3">
-                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Mapped Genres</p>
-                    <p id="modal-genres" class="text-white font-semibold mt-0.5">Analyzing...</p>
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Artist Genres</p>
+                    <p id="modal-genres" class="text-white font-semibold mt-0.5">Loading...</p>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div class="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
-                        <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Tempo</p>
-                        <p id="modal-tempo" class="text-white font-bold mt-0.5 text-base">Calculating...</p>
+                <div class="grid grid-cols-1 gap-2.5">
+                    <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
+                        <p class="text-[10px] text-zinc-500 font-medium uppercase">Album Details</p>
+                        <p id="modal-album" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
                     </div>
-                    <div class="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
-                        <div class="flex justify-between items-center mb-1">
-                            <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Danceability</p>
-                            <span id="modal-dance-val" class="text-xs font-bold text-white">0%</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
+                            <p class="text-[10px] text-zinc-500 font-medium uppercase">Release Date</p>
+                            <p id="modal-release" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
                         </div>
-                        <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                            <div id="modal-dance-bar" class="bg-green-500 h-full w-0 transition-all duration-500"></div>
-                        </div>
-                    </div>
-                    <div class="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
-                        <div class="flex justify-between items-center mb-1">
-                            <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Acousticness</p>
-                            <span id="modal-acoustic-val" class="text-xs font-bold text-white">0%</span>
-                        </div>
-                        <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                            <div id="modal-acoustic-bar" class="bg-amber-500 h-full w-0 transition-all duration-500"></div>
+                        <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
+                            <p class="text-[10px] text-zinc-500 font-medium uppercase">Track Popularity</p>
+                            <p id="modal-popularity" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
                         </div>
                     </div>
-                    <div class="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
-                        <div class="flex justify-between items-center mb-1">
-                            <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Happiness</p>
-                            <span id="modal-valence-val" class="text-xs font-bold text-white">0%</span>
-                        </div>
-                        <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                            <div id="modal-valence-bar" class="bg-indigo-500 h-full w-0 transition-all duration-500"></div>
-                        </div>
+                    <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
+                        <p class="text-[10px] text-zinc-500 font-medium uppercase">Exact Audit Finish Time</p>
+                        <p id="modal-timestamp" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Sticky bottom media player bar -->
-    <div id="sticky-player" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-zinc-950/90 backdrop-blur-xl border border-zinc-800/80 rounded-2xl px-4 py-3 flex items-center justify-between shadow-2xl z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+    <!-- Sticky Media Preview Player -->
+    <div id="sticky-player" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-2xl px-4 py-3 flex items-center justify-between shadow-2xl z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
         <div class="flex items-center space-x-3 min-w-0 flex-1">
             <img id="player-img" class="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-zinc-850">
             <div class="min-w-0 flex-1">
@@ -285,7 +320,8 @@
     <script>
         const CLIENT_ID = '997e4ee06e624c7aaf77a45f30e74394'; 
         const REDIRECT_URI = window.location.origin + window.location.pathname; 
-        const SCOPE = 'user-read-recently-played playlist-modify-public';
+        // Request playback state modifiers
+        const SCOPE = 'user-read-recently-played playlist-modify-public user-modify-playback-state';
 
         const logoutBtn = document.getElementById('logout-btn');
         const pwaInstallBtn = document.getElementById('pwa-install-btn');
@@ -297,12 +333,12 @@
         const errorMessage = document.getElementById('error-message');
         const playlistBtn = document.getElementById('playlist-btn');
 
-        // Stats Elements
-        const statVibe = document.getElementById('stat-vibe');
-        const statGenres = document.getElementById('stat-genres');
-        const statEnergy = document.getElementById('stat-energy');
-        const statBaked = document.getElementById('stat-baked');
-        const glowOrb = document.getElementById('glow-orb');
+        // Dynamic Logs Layout Elements
+        const statCount = document.getElementById('stat-count');
+        const statRuntime = document.getElementById('stat-runtime');
+        const statPopularity = document.getElementById('stat-popularity');
+        const statTopGenre = document.getElementById('stat-topgenre');
+        const timelineContainer = document.getElementById('timeline-container');
 
         // Modal Elements
         const infoModal = document.getElementById('info-modal');
@@ -311,20 +347,21 @@
         const modalTitle = document.getElementById('modal-title');
         const modalArtist = document.getElementById('modal-artist');
         const modalGenres = document.getElementById('modal-genres');
-        const modalTempo = document.getElementById('modal-tempo');
-        const modalDanceVal = document.getElementById('modal-dance-val');
-        const modalDanceBar = document.getElementById('modal-dance-bar');
-        const modalAcousticVal = document.getElementById('modal-acoustic-val');
-        const modalAcousticBar = document.getElementById('modal-acoustic-bar');
-        const modalValenceVal = document.getElementById('modal-valence-val');
-        const modalValenceBar = document.getElementById('modal-valence-bar');
+        const modalAlbum = document.getElementById('modal-album');
+        const modalRelease = document.getElementById('modal-release');
+        const modalPopularity = document.getElementById('modal-popularity');
+        const modalTimestamp = document.getElementById('modal-timestamp');
 
-        let globalTrackFeatures = {};
+        // Slider Queue State
+        let isSliding = false;
+        let activeHandle = null;
+        let startX = 0;
+        let sliderWidth = 0;
+        let activeUri = '';
+
         let globalArtistGenres = {};
         let loadedTrackUris = [];
         let rawTracksCache = [];
-        let currentCalculatedVibe = "Balanced Mix";
-        let usingPulseHeuristic = false;
         let activeAudio = null;
         let activeAudioTrackId = null;
         let playerInterval = null;
@@ -334,34 +371,15 @@
             errorMessage.innerText = msg;
             if (isError) {
                 errorBanner.classList.remove('border-zinc-800', 'text-zinc-300');
-                errorBanner.classList.add('border-red-900', 'text-red-400');
+                errorBanner.classList.add('border-red-900/60', 'text-red-400');
             } else {
-                errorBanner.classList.remove('border-red-900', 'text-red-400');
-                errorBanner.classList.add('border-zinc-800', 'text-zinc-300');
+                errorBanner.classList.remove('border-red-900/60', 'text-red-400');
+                errorBanner.classList.add('border-zinc-800/60', 'text-zinc-300');
             }
             errorBanner.classList.remove('hidden');
         }
 
-        // Tab Navigation
-        function switchTab(tabName) {
-            document.getElementById('tab-content-hub').classList.add('hidden');
-            document.getElementById('tab-content-tracks').classList.add('hidden');
-            document.getElementById('tab-content-insights').classList.add('hidden');
-
-            const btnHub = document.getElementById('tab-btn-hub');
-            const btnTracks = document.getElementById('tab-btn-tracks');
-            const btnInsights = document.getElementById('tab-btn-insights');
-
-            btnHub.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white";
-            btnTracks.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white";
-            btnInsights.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white";
-
-            document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
-            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
-            activeBtn.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800";
-        }
-
-        // PWA prompt handler
+        // PWA Installation
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -391,6 +409,12 @@
                     window.location.reload();
                 }
             }
+
+            // Fill AI Config fields
+            const savedProvider = localStorage.getItem('ai_provider') || 'openai';
+            const savedKey = localStorage.getItem('ai_key') || '';
+            document.getElementById('ai-provider').value = savedProvider;
+            document.getElementById('ai-key').value = savedKey;
 
             const token = await getValidToken();
             if (token) { 
@@ -422,24 +446,15 @@
         }
 
         function showSkeletonLoading() {
-            statVibe.innerHTML = `<span class="inline-block w-20 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
-            statGenres.innerHTML = `<span class="inline-block w-24 h-4 bg-zinc-800 animate-pulse rounded mb-1"></span>`;
-            statEnergy.innerHTML = `<span class="inline-block w-12 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
-            statBaked.innerHTML = `<span class="inline-block w-20 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
-
-            tracksList.innerHTML = Array(6).fill(0).map(() => `
-                <div class="card-bg rounded-xl p-3 flex items-center justify-between animate-pulse pointer-events-none">
-                    <div class="flex items-center space-x-3 min-w-0 flex-1">
-                        <div class="w-12 h-12 rounded-lg bg-zinc-800 flex-shrink-0"></div>
-                        <div class="min-w-0 flex-1 space-y-2">
-                            <div class="h-3 bg-zinc-800 rounded w-3/4"></div>
-                            <div class="h-2.5 bg-zinc-800 rounded w-1/2"></div>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-3 flex-shrink-0 ml-2">
-                        <div class="h-3 bg-zinc-800 rounded w-10"></div>
-                        <div class="w-8 h-8 rounded-full bg-zinc-800"></div>
-                    </div>
+            statCount.innerHTML = `<span class="inline-block w-8 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
+            statRuntime.innerHTML = `<span class="inline-block w-12 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
+            statPopularity.innerHTML = `<span class="inline-block w-8 h-4 bg-zinc-800 animate-pulse rounded"></span>`;
+            statTopGenre.innerHTML = `<span class="inline-block w-16 h-3 bg-zinc-800 animate-pulse rounded"></span>`;
+            timelineContainer.innerHTML = Array(3).fill(0).map(() => `
+                <div class="relative pl-4 animate-pulse">
+                    <div class="absolute -left-[27px] top-1 w-3 h-3 rounded-full bg-zinc-800"></div>
+                    <div class="h-4 bg-zinc-850 rounded w-1/4 mb-1"></div>
+                    <div class="h-3 bg-zinc-900 rounded w-1/2"></div>
                 </div>
             `).join('');
         }
@@ -484,29 +499,7 @@
                     }
                 }
 
-                const trackIds = items.map(item => item.track?.id).filter(id => id).join(',');
-                if (trackIds) {
-                    try {
-                        const featuresResponse = await fetch(`https://api.spotify.com/v1/audio-features?ids=${trackIds}`, {
-                            headers: { 'Authorization': 'Bearer ' + token }
-                        });
-                        if (featuresResponse.ok) {
-                            const featuresData = await featuresResponse.json();
-                            (featuresData.audio_features || []).forEach(feat => {
-                                if (feat) globalTrackFeatures[feat.id] = feat;
-                            });
-                            usingPulseHeuristic = false;
-                        } else if (featuresResponse.status === 403) {
-                            usingPulseHeuristic = true;
-                        } else {
-                            usingPulseHeuristic = true;
-                        }
-                    } catch (err) {
-                        usingPulseHeuristic = true;
-                    }
-                }
-
-                processSmartMetrics(items);
+                processFactualMetrics(items);
 
             } catch (err) { 
                 showUIStatus(err.message);
@@ -514,249 +507,272 @@
             }
         }
 
-        // Deterministic hashing fallback for deprecated Spotify audio metrics
-        function calculateHeuristicFeatures(track, genres) {
-            const seedVal = (function(str) {
-                let h = 0;
-                if (!str) return 0.5;
-                for (let i = 0; i < str.length; i++) {
-                    h = str.charCodeAt(i) + ((h << 5) - h);
-                }
-                return Math.abs(h % 1000) / 1000;
-            })(track.id);
-
-            let tempo = 95 + (seedVal * 45); // 95 - 140 BPM
-            let danceability = 0.35 + (seedVal * 0.45); // 35% - 80%
-            let acousticness = 0.05 + (seedVal * 0.35); // 5% - 40%
-            let energy = 0.35 + (seedVal * 0.45); // 35% - 80%
-            let valence = 0.2 + (seedVal * 0.65); // 20% - 85%
-
-            const genreStr = genres.join(' ').toLowerCase();
-
-            if (genreStr.includes('ambient') || genreStr.includes('lo-fi') || genreStr.includes('chillout') || genreStr.includes('downtempo')) {
-                tempo = 65 + (seedVal * 20); // 65-85 BPM
-                energy = 0.05 + (seedVal * 0.15);
-                acousticness = 0.65 + (seedVal * 0.3);
-                danceability = 0.2 + (seedVal * 0.25);
-            } else if (genreStr.includes('classical') || genreStr.includes('piano') || genreStr.includes('instrumental')) {
-                tempo = 60 + (seedVal * 40);
-                energy = 0.05 + (seedVal * 0.2);
-                acousticness = 0.8 + (seedVal * 0.19);
-                danceability = 0.1 + (seedVal * 0.15);
-            } else if (genreStr.includes('metal') || genreStr.includes('grindcore') || genreStr.includes('hardcore punk')) {
-                tempo = 125 + (seedVal * 55); // 125-180 BPM
-                energy = 0.8 + (seedVal * 0.18);
-                acousticness = 0.01 + (seedVal * 0.08);
-            } else if (genreStr.includes('edm') || genreStr.includes('house') || genreStr.includes('techno') || genreStr.includes('trance')) {
-                tempo = 118 + (seedVal * 15); // 118-133 (Standard house BPM)
-                energy = 0.7 + (seedVal * 0.25);
-                acousticness = 0.01 + (seedVal * 0.09);
-                danceability = 0.7 + (seedVal * 0.25);
-            } else if (genreStr.includes('hip hop') || genreStr.includes('rap') || genreStr.includes('trap')) {
-                tempo = 80 + (seedVal * 50);
-                danceability = 0.65 + (seedVal * 0.25);
-                energy = 0.5 + (seedVal * 0.3);
-            } else if (genreStr.includes('pop') || genreStr.includes('dance pop') || genreStr.includes('r&b')) {
-                danceability = 0.6 + (seedVal * 0.3);
-                energy = 0.55 + (seedVal * 0.3);
-            }
-
-            if (track.popularity > 75) {
-                danceability = Math.min(0.98, danceability + 0.05);
-                energy = Math.min(0.98, energy + 0.05);
-            }
-
-            return {
-                tempo: Math.round(tempo),
-                danceability: Math.max(0.01, Math.min(0.99, danceability)),
-                acousticness: Math.max(0.01, Math.min(0.99, acousticness)),
-                energy: Math.max(0.01, Math.min(0.99, energy)),
-                valence: Math.max(0.01, Math.min(0.99, valence))
-            };
+        // Relative time string helper
+        function getRelativeTime(playedAtString) {
+            const playedAt = new Date(playedAtString);
+            const now = new Date();
+            const diffMs = now - playedAt;
+            const diffSec = Math.round(diffMs / 1000);
+            const diffMin = Math.round(diffSec / 60);
+            const diffHr = Math.round(diffMin / 60);
+            
+            if (diffSec < 60) return "just now";
+            if (diffMin < 60) return `${diffMin} min${diffMin > 1 ? 's' : ''} ago`;
+            if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? 's' : ''} ago`;
+            
+            return playedAt.toLocaleDateString([], { month: 'short', day: 'numeric' });
         }
 
-        function processSmartMetrics(items) {
-            tracksList.innerHTML = '';
-            trackCount.innerText = `${items.length} tracks`;
+        // Exact time helper
+        function getAbsoluteTime(playedAtString) {
+            const playedAt = new Date(playedAtString);
+            return playedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
 
-            let totalEnergy = 0;
-            let totalValence = 0; 
+        // Strictly real metadata processing
+        function processFactualMetrics(items) {
+            tracksList.innerHTML = '';
+            timelineContainer.innerHTML = '';
+            
+            statCount.innerText = `${items.length}`;
+            
+            let totalDurationMs = 0;
             let totalPopularity = 0;
             let genreCounts = {};
-            let validFeatureCount = 0;
-            let hazyTracksCount = 0;
-            let eraCounts = { '2020s': 0, '2010s': 0, '2000s': 0, 'pre2000': 0 };
 
-            items.forEach((item, index) => {
-                if (!item.track) return;
+            // Calculate precise gap metrics
+            // items is ordered newest to oldest, reverse it to analyze chronological playback intervals
+            const chronologically = [...items].reverse();
+
+            chronologically.forEach((item, index) => {
                 const track = item.track;
-                const mainArtistId = track.artists[0]?.id;
-                const genres = globalArtistGenres[mainArtistId] || [];
+                if (!track) return;
+                
+                totalDurationMs += track.duration_ms;
+                totalPopularity += (track.popularity || 0);
 
+                const artistId = track.artists[0]?.id;
+                const genres = globalArtistGenres[artistId] || [];
                 genres.forEach(g => { genreCounts[g] = (genreCounts[g] || 0) + 1; });
+            });
 
-                // Apply fallbacks dynamically if API returned 403 / is deprecated
-                let features = globalTrackFeatures[track.id];
-                if (!features || usingPulseHeuristic) {
-                    features = calculateHeuristicFeatures(track, genres);
-                    globalTrackFeatures[track.id] = features; // cache globally for modal to consume
-                }
+            const totalMinutes = Math.round(totalDurationMs / 60000);
+            statRuntime.innerText = `${totalMinutes} min`;
 
-                if (features) {
-                    totalEnergy += features.energy;
-                    totalValence += features.valence;
-                    validFeatureCount++;
+            const avgPopularity = items.length > 0 ? Math.round(totalPopularity / items.length) : 0;
+            statPopularity.innerText = `${avgPopularity}%`;
 
-                    const isSlow = features.tempo < 110;
-                    const isAcousticOrDreamy = features.acousticness > 0.4 || features.instrumentalness > 0.15;
-                    const isLowEnergy = features.energy < 0.52;
+            const sortedGenres = Object.keys(genreCounts).sort((a,b) => genreCounts[b] - genreCounts[a]);
+            statTopGenre.innerText = sortedGenres.length > 0 ? sortedGenres[0] : 'None';
+
+            // Build history audit timeline
+            chronologically.forEach((item, index) => {
+                const track = item.track;
+                const playedAtStr = item.played_at;
+                const relativeTime = getRelativeTime(playedAtStr);
+                const absoluteTime = getAbsoluteTime(playedAtStr);
+
+                let gapText = "";
+                if (index > 0) {
+                    const prevItem = chronologically[index - 1];
+                    const prevEnd = new Date(prevItem.played_at).getTime();
+                    const trackDuration = track.duration_ms;
                     
-                    if (isLowEnergy && (isSlow || isAcousticOrDreamy)) {
-                        hazyTracksCount++;
+                    const currentEnd = new Date(item.played_at).getTime();
+                    const currentStart = currentEnd - trackDuration;
+                    
+                    const gapMs = currentStart - prevEnd;
+                    if (gapMs > 5000) { // Gap greater than 5 seconds
+                        const gapSec = Math.round(gapMs / 1000);
+                        const gapMin = Math.round(gapSec / 60);
+                        if (gapMin > 0) {
+                            gapText = `Break of ${gapMin} min${gapMin > 1 ? 's' : ''}`;
+                        } else {
+                            gapText = `Break of ${gapSec} sec`;
+                        }
+                    } else {
+                        gapText = "Continuous stream";
                     }
                 }
 
-                // Taste profile analysis helpers
-                totalPopularity += (track.popularity || 0);
+                const logNode = document.createElement('div');
+                logNode.className = 'relative pl-4 group';
+                logNode.innerHTML = `
+                    <div class="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full border border-zinc-900 bg-emerald-500 shadow-[0_0_8px_rgba(29,185,84,0.4)] group-hover:bg-emerald-400 transition-colors"></div>
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-baseline text-xs">
+                        <p class="font-bold text-white text-sm truncate">${track.name} <span class="text-zinc-500 font-normal text-xs">by ${track.artists.map(a => a.name).join(', ')}</span></p>
+                        <span class="text-[10px] text-zinc-500 whitespace-nowrap">${relativeTime} (${absoluteTime})</span>
+                    </div>
+                    ${gapText ? `<p class="text-[10px] text-zinc-500 font-medium tracking-wider mt-0.5 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800/40 inline-block uppercase">${gapText}</p>` : ''}
+                `;
+                timelineContainer.prepend(logNode); // reverse chronological output for user reading (newest on top)
+            });
 
-                const releaseDate = track.album?.release_date || '';
-                const releaseYear = releaseDate ? new Date(releaseDate).getFullYear() : null;
-                if (releaseYear) {
-                    if (releaseYear >= 2020) eraCounts['2020s']++;
-                    else if (releaseYear >= 2010) eraCounts['2010s']++;
-                    else if (releaseYear >= 2000) eraCounts['2000s']++;
-                    else eraCounts['pre2000']++;
-                }
-
+            // Build Queue Controller Cards
+            items.forEach((item, index) => {
+                const track = item.track;
+                const relativeTime = getRelativeTime(item.played_at);
+                const absoluteTime = getAbsoluteTime(item.played_at);
                 const albumArt = track.album?.images[1]?.url || 'https://via.placeholder.com/150';
                 const trackName = track.name;
                 const artistName = track.artists.map(a => a.name).join(', ');
-                const playedAt = new Date(item.played_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const mainArtistId = track.artists[0]?.id;
 
                 const cleanTrackTitle = trackName.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 const cleanArtistTitle = artistName.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 const previewUrl = track.preview_url || '';
 
                 const card = document.createElement('div');
-                card.className = 'card-bg rounded-xl p-3 flex items-center justify-between cursor-pointer transition duration-150 transform active:scale-[0.99]';
-                card.setAttribute('onclick', `openModal('${track.id}', '${mainArtistId}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}')`);
+                card.className = 'card-bg rounded-xl p-3.5 flex flex-col justify-between cursor-pointer transition duration-150 transform active:scale-[0.99] relative overflow-hidden';
+                card.setAttribute('onclick', `openModal('${track.id}', '${mainArtistId}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}', '${track.album?.name}', '${track.album?.release_date}', ${track.popularity}, '${item.played_at}')`);
                 card.setAttribute('data-index', index);
                 
                 card.innerHTML = `
-                    <div class="flex items-center space-x-3 min-w-0 flex-1">
-                        <img src="${albumArt}" class="w-12 h-12 rounded-lg shadow-md object-cover flex-shrink-0">
-                        <div class="min-w-0 flex-1">
-                            <p class="font-semibold text-white truncate text-sm">${trackName}</p>
-                            <p class="text-xs text-zinc-400 truncate">${artistName}</p>
+                    <div class="flex items-start justify-between space-x-3 min-w-0">
+                        <div class="flex items-center space-x-3 min-w-0">
+                            <img src="${albumArt}" class="w-11 h-11 rounded shadow-md object-cover flex-shrink-0">
+                            <div class="min-w-0">
+                                <p class="font-bold text-white truncate text-xs">${trackName}</p>
+                                <p class="text-[10px] text-zinc-400 truncate">${artistName}</p>
+                                <p class="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider mt-1 block">${relativeTime}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-center space-x-3 flex-shrink-0 ml-2">
-                        <span class="text-xs text-zinc-500 font-medium">${playedAt}</span>
-                        <button onclick="handlePlayClick(event, '${track.id}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}', '${previewUrl}')" class="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-90 text-white flex items-center justify-center transition">
-                            <svg class="w-3 h-3 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <button onclick="handlePlayClick(event, '${track.id}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}', '${previewUrl}')" class="w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-800 flex-shrink-0 text-white flex items-center justify-center transition">
+                            <svg class="w-2.5 h-2.5 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </button>
+                    </div>
+
+                    <!-- Slide-To-Queue Interactive Widget -->
+                    <div class="relative w-full h-8 bg-zinc-950 rounded-full border border-zinc-800/80 overflow-hidden mt-3.5 select-none flex items-center justify-center pointer-events-auto" onclick="event.stopPropagation()">
+                        <span class="text-[9px] text-zinc-500 font-extrabold uppercase tracking-widest slider-text">Slide to Queue</span>
+                        <div class="absolute left-0 top-0 bottom-0 w-8 bg-emerald-500 rounded-full flex items-center justify-center cursor-pointer transition-colors active:scale-95 slider-handle" 
+                             onmousedown="initSlider(event, '${track.uri}')" 
+                             ontouchstart="initSlider(event, '${track.uri}')">
+                            <span class="text-black font-extrabold text-xs pointer-events-none">➔</span>
+                        </div>
                     </div>
                 `;
                 tracksList.appendChild(card);
             });
 
-            // Switch layout state if API blocked standard features
-            const engineNotice = document.getElementById('engine-notice');
-            if (usingPulseHeuristic) {
-                engineNotice.classList.remove('hidden');
-            } else {
-                engineNotice.classList.add('hidden');
-            }
+            trackCount.innerText = `${items.length} tracks`;
+        }
 
-            const avgEnergy = validFeatureCount > 0 ? (totalEnergy / validFeatureCount) : 0;
-            const avgValence = validFeatureCount > 0 ? (totalValence / validFeatureCount) : 0;
-
-            const sortedGenres = Object.keys(genreCounts).sort((a,b) => genreCounts[b] - genreCounts[a]).slice(0, 3);
-            statGenres.innerText = sortedGenres.length > 0 ? sortedGenres.join(', ') : 'Eclectic';
-
-            statEnergy.innerText = `${Math.round(avgEnergy * 100)}%`;
-
-            let vibe = "Balanced Mix";
-            if (avgEnergy > 0.7 && avgValence > 0.6) vibe = "Hype / Electric";
-            else if (avgEnergy > 0.6 && avgValence <= 0.4) vibe = "Intense / Dark";
-            else if (avgEnergy <= 0.4 && avgValence > 0.5) vibe = "Chill / Melodic";
-            else if (avgEnergy <= 0.4 && avgValence <= 0.4) vibe = "Somber / Moody";
-            else if (avgEnergy > 0.4 && avgEnergy <= 0.7 && avgValence > 0.4) vibe = "Smooth Floating";
+        // Slide Gestures system
+        function initSlider(e, uri) {
+            e.preventDefault();
+            isSliding = true;
+            activeHandle = e.currentTarget;
+            activeUri = uri;
             
-            currentCalculatedVibe = vibe;
-            statVibe.innerText = vibe;
+            const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+            startX = clientX;
+            
+            sliderWidth = activeHandle.parentElement.clientWidth - activeHandle.clientWidth;
+            
+            document.addEventListener('mousemove', handleSlide);
+            document.addEventListener('touchmove', handleSlide, { passive: false });
+            document.addEventListener('mouseup', endSlide);
+            document.addEventListener('touchend', endSlide);
+        }
 
-            // Handle Glow visualizer orb positioning & coloration based on Calculated vibe
-            if (vibe === "Hype / Electric") {
-                glowOrb.className = "w-28 h-28 rounded-full absolute -top-8 -left-8 bg-gradient-to-r from-violet-600 to-emerald-500 blur-2xl opacity-20 transition-all duration-1000 animate-pulse";
-            } else if (vibe === "Intense / Dark") {
-                glowOrb.className = "w-28 h-28 rounded-full absolute -top-8 -left-8 bg-gradient-to-r from-red-600 to-purple-800 blur-2xl opacity-20 transition-all duration-1000 animate-pulse";
-            } else if (vibe === "Chill / Melodic") {
-                glowOrb.className = "w-28 h-28 rounded-full absolute -top-8 -left-8 bg-gradient-to-r from-cyan-500 to-emerald-400 blur-2xl opacity-25 transition-all duration-1000 animate-pulse";
-            } else if (vibe === "Somber / Moody") {
-                glowOrb.className = "w-28 h-28 rounded-full absolute -top-8 -left-8 bg-gradient-to-r from-indigo-900 to-zinc-700 blur-2xl opacity-15 transition-all duration-1000 animate-pulse";
-            } else {
-                glowOrb.className = "w-28 h-28 rounded-full absolute -top-8 -left-8 bg-gradient-to-r from-pink-500 to-sky-400 blur-2xl opacity-20 transition-all duration-1000 animate-pulse";
+        function handleSlide(e) {
+            if (!isSliding || !activeHandle) return;
+            if (e.cancelable) e.preventDefault();
+            
+            const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+            let deltaX = clientX - startX;
+            
+            deltaX = Math.max(0, Math.min(deltaX, sliderWidth));
+            
+            activeHandle.style.transform = `translateX(${deltaX}px)`;
+            
+            const pct = (deltaX / sliderWidth) * 100;
+            activeHandle.parentElement.style.background = `linear-gradient(to right, rgba(16, 185, 129, ${pct/300}) ${pct}%, rgb(9, 9, 11) ${pct}%)`;
+        }
+
+        async function endSlide(e) {
+            if (!isSliding || !activeHandle) return;
+            isSliding = false;
+            
+            document.removeEventListener('mousemove', handleSlide);
+            document.removeEventListener('touchmove', handleSlide);
+            document.removeEventListener('mouseup', endSlide);
+            document.removeEventListener('touchend', endSlide);
+
+            const transformMatrix = window.getComputedStyle(activeHandle).transform;
+            let currentX = 0;
+            if (transformMatrix && transformMatrix !== 'none') {
+                const values = transformMatrix.split('(')[1].split(')')[0].split(',');
+                currentX = parseFloat(values[4]) || 0;
             }
 
-            const hazePercentage = items.length > 0 ? Math.round((hazyTracksCount / items.length) * 100) : 0;
-            let highStatus = "Clear Headed ☕";
-            if (hazePercentage > 70) highStatus = "In Orbit 🪐";
-            else if (hazePercentage > 45) highStatus = "Baked 🌲";
-            else if (hazePercentage > 20) highStatus = "Zoned Out 😶‍🌫️";
-            else if (hazePercentage > 5) highStatus = "Chilled 🌊";
-            statBaked.innerText = highStatus;
-
-            // Process Taste Insights
-            const avgPopularity = items.length > 0 ? Math.round(totalPopularity / items.length) : 0;
-            let popLabel = "Eclectic Music Taste 🎧";
-            let popDesc = "You scrobble a mix of mainstream hits and underground entries.";
-            if (avgPopularity > 75) {
-                popLabel = "Mainstream Heatseeker 📈";
-                popDesc = "Your listening patterns focus heavily on charts, global releases, and established stars.";
-            } else if (avgPopularity < 50) {
-                popLabel = "Underground Collector 💎";
-                popDesc = "You prefer discovering rare cuts, obscure indie artists, and specialized sounds.";
-            }
-
-            document.getElementById('popularity-val').innerText = `${avgPopularity}%`;
-            document.getElementById('popularity-label').innerText = popLabel;
-            document.getElementById('popularity-desc').innerText = popDesc;
-
-            // Draw Release Era Timelines
-            const pct2020s = items.length > 0 ? Math.round((eraCounts['2020s'] / items.length) * 100) : 0;
-            const pct2010s = items.length > 0 ? Math.round((eraCounts['2010s'] / items.length) * 100) : 0;
-            const pct2000s = items.length > 0 ? Math.round((eraCounts['2000s'] / items.length) * 100) : 0;
-            const pctPre2000 = items.length > 0 ? Math.round((eraCounts['pre2000'] / items.length) * 100) : 0;
-
-            document.getElementById('era-2020s-val').innerText = `${pct2020s}%`;
-            document.getElementById('era-2020s-bar').style.width = `${pct2020s}%`;
-
-            document.getElementById('era-2010s-val').innerText = `${pct2010s}%`;
-            document.getElementById('era-2010s-bar').style.width = `${pct2010s}%`;
-
-            document.getElementById('era-2000s-val').innerText = `${pct2000s}%`;
-            document.getElementById('era-2000s-bar').style.width = `${pct2000s}%`;
-
-            document.getElementById('era-pre2000-val').innerText = `${pctPre2000}%`;
-            document.getElementById('era-pre2000-bar').style.width = `${pctPre2000}%`;
-
-            // Draw Genre Cloud pills
-            const cloudContainer = document.getElementById('genre-cloud');
-            const sortedGenresTotal = Object.entries(genreCounts)
-                .sort((a,b) => b[1] - a[1])
-                .slice(0, 14);
-
-            if (sortedGenresTotal.length > 0) {
-                cloudContainer.innerHTML = sortedGenresTotal.map(([genre, count]) => {
-                    return `<span class="bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs px-3 py-1.5 rounded-full transition duration-150">${genre} <span class="text-emerald-500 font-bold ml-1">${count}</span></span>`;
-                }).join('');
+            if (currentX >= sliderWidth * 0.85) {
+                activeHandle.style.transition = 'transform 0.15s ease-out';
+                activeHandle.style.transform = `translateX(${sliderWidth}px)`;
+                
+                const textEl = activeHandle.parentElement.querySelector('.slider-text');
+                textEl.innerText = "QUEUING...";
+                textEl.classList.add('text-emerald-400');
+                
+                const success = await addToSpotifyQueue(activeUri);
+                if (success) {
+                    textEl.innerText = "QUEUED!";
+                    activeHandle.style.backgroundColor = '#10B981';
+                    setTimeout(() => resetSlider(activeHandle), 1500);
+                } else {
+                    textEl.innerText = "NO ACTIVE PLAYER";
+                    textEl.classList.remove('text-emerald-400');
+                    textEl.classList.add('text-red-400');
+                    activeHandle.style.backgroundColor = '#EF4444';
+                    setTimeout(() => resetSlider(activeHandle), 3500);
+                }
             } else {
-                cloudContainer.innerHTML = `<span class="text-xs text-zinc-500">No recent genres tagged.</span>`;
+                resetSlider(activeHandle);
+            }
+            
+            activeHandle = null;
+        }
+
+        function resetSlider(handle) {
+            if (!handle) return;
+            handle.style.transition = 'transform 0.2s ease-out, background-color 0.2s';
+            handle.style.transform = 'translateX(0px)';
+            handle.style.backgroundColor = '#10b981';
+            
+            const parent = handle.parentElement;
+            parent.style.background = 'rgb(9, 9, 11)';
+            
+            const textEl = parent.querySelector('.slider-text');
+            textEl.innerText = "Slide to Queue";
+            textEl.className = "text-[9px] text-zinc-500 font-extrabold uppercase tracking-widest slider-text";
+            
+            setTimeout(() => {
+                handle.style.transition = '';
+            }, 200);
+        }
+
+        // Add to active Spotify Queue Endpoint
+        async function addToSpotifyQueue(trackUri) {
+            const token = await getValidToken();
+            if (!token) return false;
+
+            try {
+                const response = await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(trackUri)}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.status === 204) {
+                    return true;
+                }
+                return false;
+            } catch (err) {
+                console.error("Queue API Error:", err);
+                return false;
             }
         }
 
-        // Search track filter implementation
         function filterTracks() {
             const query = document.getElementById('search-input').value.toLowerCase().trim();
             const cards = tracksList.children;
@@ -779,7 +795,7 @@
             trackCount.innerText = `${visibleCount} match${visibleCount !== 1 ? 'es' : ''}`;
         }
 
-        // Media player hooks
+        // Media player functions
         function handlePlayClick(event, trackId, title, artist, artUrl, previewUrl) {
             event.stopPropagation();
             playTrackPreview(trackId, title, artist, artUrl, previewUrl);
@@ -864,50 +880,24 @@
             player.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
         }
 
-        function openModal(trackId, artistId, title, artist, artUrl) {
-            const features = globalTrackFeatures[trackId];
+        // Details dialog (Factual properties only)
+        function openModal(trackId, artistId, title, artist, artUrl, albumName, releaseDate, popularity, playedAt) {
             const genres = globalArtistGenres[artistId] || [];
 
             modalImg.src = artUrl;
             modalTitle.innerText = title;
             modalArtist.innerText = artist;
-            modalGenres.innerText = genres.length > 0 ? genres.slice(0, 3).join(', ') : 'Eclectic / Unknown';
+            modalGenres.innerText = genres.length > 0 ? genres.slice(0, 3).join(', ') : 'Not returned by Spotify';
+            modalAlbum.innerText = albumName || 'Unknown Album';
+            modalRelease.innerText = releaseDate || 'Unavailable';
+            modalPopularity.innerText = `${popularity}%`;
+            modalTimestamp.innerText = `${new Date(playedAt).toLocaleString()}`;
 
-            if (features) {
-                modalTempo.innerText = `${Math.round(features.tempo)} BPM`;
-                modalDanceVal.innerText = `${Math.round(features.danceability * 100)}%`;
-                modalAcousticVal.innerText = `${Math.round(features.acousticness * 100)}%`;
-                modalValenceVal.innerText = `${Math.round(features.valence * 100)}%`;
-
-                modalDanceBar.style.width = '0%';
-                modalAcousticBar.style.width = '0%';
-                modalValenceBar.style.width = '0%';
-
-                infoModal.classList.remove('hidden');
-                setTimeout(() => {
-                    infoModal.classList.remove('opacity-0');
-                    modalContainer.classList.remove('scale-95');
-                    
-                    modalDanceBar.style.width = `${Math.round(features.danceability * 100)}%`;
-                    modalAcousticBar.style.width = `${Math.round(features.acousticness * 100)}%`;
-                    modalValenceBar.style.width = `${Math.round(features.valence * 100)}%`;
-                }, 50);
-            } else {
-                modalTempo.innerText = 'Unavailable';
-                modalDanceVal.innerText = '0%';
-                modalAcousticVal.innerText = '0%';
-                modalValenceVal.innerText = '0%';
-                
-                modalDanceBar.style.width = '0%';
-                modalAcousticBar.style.width = '0%';
-                modalValenceBar.style.width = '0%';
-
-                infoModal.classList.remove('hidden');
-                setTimeout(() => {
-                    infoModal.classList.remove('opacity-0');
-                    modalContainer.classList.remove('scale-95');
-                }, 50);
-            }
+            infoModal.classList.remove('hidden');
+            setTimeout(() => {
+                infoModal.classList.remove('opacity-0');
+                modalContainer.classList.remove('scale-95');
+            }, 50);
         }
 
         function closeModal() {
@@ -919,6 +909,107 @@
         function handleOutsideModalClick(event) {
             if (event.target === infoModal) {
                 closeModal();
+            }
+        }
+
+        // AI DJ Assistant Implementation
+        function saveAIConfig() {
+            const provider = document.getElementById('ai-provider').value;
+            const key = document.getElementById('ai-key').value.trim();
+            localStorage.setItem('ai_provider', provider);
+            localStorage.setItem('ai_key', key);
+            showUIStatus("AI configuration updated successfully.", false);
+        }
+
+        function generateAIPrivacyClear() {
+            localStorage.removeItem('ai_provider');
+            localStorage.removeItem('ai_key');
+            document.getElementById('ai-key').value = '';
+            showUIStatus("AI credentials cleared from local environment.", false);
+        }
+
+        async function runAIAuditor() {
+            const provider = localStorage.getItem('ai_provider') || 'openai';
+            const key = localStorage.getItem('ai_key');
+            const outputTerminal = document.getElementById('ai-output');
+            const runBtn = document.getElementById('ai-run-btn');
+
+            if (!key) {
+                outputTerminal.innerText = "Error: No API key found. Please enter your API key in the configuration block above and save it.";
+                return;
+            }
+
+            if (rawTracksCache.length === 0) {
+                outputTerminal.innerText = "Error: No Spotify history loaded to analyze yet.";
+                return;
+            }
+
+            runBtn.disabled = true;
+            runBtn.innerText = "Processing...";
+            outputTerminal.innerText = "Connecting to model endpoint...\nFormulating prompt based on your last 50 actual stream logs...";
+
+            const tracksSummary = rawTracksCache.map((item, idx) => {
+                const track = item.track;
+                const genres = globalArtistGenres[track?.artists[0]?.id] || [];
+                return `${idx + 1}. "${track.name}" by ${track.artists.map(a=>a.name).join(', ')} [Popularity: ${track.popularity}%, Year: ${track.album.release_date?.slice(0,4)}, Genres: ${genres.join('/')}]`;
+            }).join('\n');
+
+            const promptText = `Analyze my last 50 recently played tracks on Spotify. Audit this actual data:\n\n${tracksSummary}\n\nTasks:\n1. Formulate a 2-paragraph musical evaluation profiling my style, tempo trends, and artist overlaps.\n2. Suggest 5 accurate songs for my current profile, explaining why they align with this sequence.\n3. Make note of any sudden style transitions between consecutive entries. Speak as a highly professional music critic. Keep response concise, readable, and authentic.`;
+
+            try {
+                let responseText = "";
+
+                if (provider === 'openai') {
+                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + key,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-4o-mini",
+                            messages: [
+                                { role: "system", content: "You are StreamPulse AI, an expert music analyst and DJ auditing scrobble logs." },
+                                { role: "user", content: promptText }
+                            ]
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error?.message || `API error (${response.status})`);
+                    }
+
+                    const resData = await response.json();
+                    responseText = resData.choices[0]?.message?.content || "No text generated.";
+                } else if (provider === 'gemini') {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{ text: promptText }]
+                            }]
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error?.message || `API error (${response.status})`);
+                    }
+
+                    const resData = await response.json();
+                    responseText = resData.candidates?.[0]?.content?.parts?.[0]?.text || "No text generated.";
+                }
+
+                outputTerminal.innerText = responseText;
+            } catch (err) {
+                outputTerminal.innerText = `API Fetch Error: ${err.message}\n\nPlease check your key and billing limits on your developer panel.`;
+            } finally {
+                runBtn.disabled = false;
+                runBtn.innerText = "Run Analysis";
             }
         }
 
@@ -943,8 +1034,8 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        name: `StreamPulse: ${currentCalculatedVibe}`,
-                        description: `Automated dynamic snapshot generated by StreamPulse on ${new Date().toLocaleDateString()}.`,
+                        name: `StreamPulse Compiled Session`,
+                        description: `Compiled history log snapshot generated by StreamPulse on ${new Date().toLocaleDateString()}.`,
                         public: true
                     })
                 });
@@ -960,21 +1051,21 @@
                     body: JSON.stringify({ uris: loadedTrackUris })
                 });
 
-                showUIStatus(`Success! Created playlist "StreamPulse: ${currentCalculatedVibe}" in your library.`, false);
-                playlistBtn.innerText = "Generation Complete!";
+                showUIStatus(`Created compilation playlist "StreamPulse Compiled Session" in your library.`, false);
+                playlistBtn.innerText = "Compilation Complete!";
             } catch (err) {
                 showUIStatus("Playlist Engine Error: " + err.message);
-                playlistBtn.innerText = "Generate Vibe Playlist";
+                playlistBtn.innerText = "Compile Playlist";
                 playlistBtn.disabled = false;
             }
         }
 
         function renderEmptyState() {
-            statVibe.innerText = "Unknown";
-            statGenres.innerText = "None";
-            statEnergy.innerText = "0%";
-            statBaked.innerText = "Unknown";
-            tracksList.innerHTML = `<div class="col-span-full py-12 text-center text-zinc-500 text-sm">No streaming history found. Stream some music, then reload dashboard.</div>`;
+            statCount.innerText = "0";
+            statRuntime.innerText = "0 min";
+            statPopularity.innerText = "0%";
+            statTopGenre.innerText = "None";
+            timelineContainer.innerHTML = `<div class="py-4 text-center text-zinc-500 text-xs">No scrobbles audited. Stream music on your account and return.</div>`;
         }
 
         async function loginWithSpotifyClick() {
