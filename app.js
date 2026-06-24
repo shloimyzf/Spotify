@@ -53,6 +53,14 @@ let currentPlayingArtistName = "";
 // Dynamic Taxonomy Filters State
 let selectedGenreFilter = "";
 
+// Canvas Animation context states for Midnight/ambient visualizations
+let canvas, ctx;
+let visualizerAnimationId = null;
+let waves = [];
+let particles = [];
+let activeVisualizerBPM = 120;
+let activeVisualizerValence = 0.5;
+
 let globalArtistGenres = {};
 let loadedTrackUris = [];
 let rawTracksCache = [];
@@ -125,20 +133,6 @@ function switchWorkspaceTab(tabName) {
     }
 }
 
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    pwaInstallBtn.classList.remove('hidden');
-    pwaInstallBtn.onclick = async () => {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-            pwaInstallBtn.classList.add('hidden');
-        }
-        deferredPrompt = null;
-    };
-});
-
 // Settings save block directly checks layout states before execution
 function loadSavedAIConfig() {
     const savedProvider = localStorage.getItem('ai_provider') || 'openai';
@@ -181,6 +175,7 @@ async function init() {
 }
 
 function logout() {
+    // Only clear Spotify variables so we do NOT erase user AI Keys
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('expires_at');
@@ -339,7 +334,7 @@ function showLivePlaybackWidget(data) {
         const genres = globalArtistGenres[mainArtistId] || [];
         document.getElementById('live-stats-genres').innerText = genres.length > 0 ? genres.slice(0,2).join(', ') : 'Eclectic';
 
-        // Auto inspect currently playing track
+        // Auto inspect currently playing track inside HUD left panel
         inspectTrackDetails(track.id);
     }
 
@@ -367,11 +362,15 @@ function showLivePlaybackWidget(data) {
         }, 1000);
     }
 
-    if (currentPlaybackIsPlaying) {
-        playPauseIcon.innerHTML = `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
-    } else {
-        playPauseIcon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
-    }
+    // Dynamic sync values on the active visualizer elements if open
+    updateImmersiveVisualizerProgress();
+
+    const playPauseSVG = currentPlaybackIsPlaying 
+        ? `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>` 
+        : `<path d="M8 5v14l11-7z"/>`;
+
+    playPauseIcon.innerHTML = playPauseSVG;
+    document.getElementById('viz-play-pause-icon').innerHTML = playPauseSVG;
 }
 
 function updateLiveProgressUI() {
@@ -457,7 +456,7 @@ async function getLiveAILinerNotes() {
     }
 }
 
-// Spotify loop protection using algorithmically generated recommendation vectors
+// Spotify artist-loop breaker using algorithmically generated recommendation vectors
 async function breakArtistLoop() {
     const token = await getValidToken();
     if (!token || !currentPlayingTrackId) return;
@@ -465,7 +464,6 @@ async function breakArtistLoop() {
     showUIStatus("Breaking loop... Fetching native Spotify recommendation seeds.", false);
 
     try {
-        // Query Spotify Recommendations directly using active item as a seed track
         const response = await fetch(`https://api.spotify.com/v1/recommendations?seed_tracks=${currentPlayingTrackId}&limit=3`, {
             headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -488,54 +486,6 @@ async function breakArtistLoop() {
         throw new Error("Target player unavailable or recommendation endpoint blocked.");
     } catch (err) {
         showUIStatus("Autoplay Injection failure. Is your Spotify player session active?", true);
-    }
-}
-
-async function toggleLivePlayback() {
-    const token = await getValidToken();
-    if (!token) return;
-
-    const endpoint = currentPlaybackIsPlaying ? 'pause' : 'play';
-    try {
-        const response = await fetch(`https://api.spotify.com/v1/me/player/${endpoint}`, {
-            method: 'PUT',
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
-        if (response.status === 403) {
-            showUIStatus("Spotify Premium session required to modify playback states from other apps.");
-        } else {
-            pollLivePlayback();
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function skipLiveNext() {
-    const token = await getValidToken();
-    if (!token) return;
-    try {
-        await fetch('https://api.spotify.com/v1/me/player/next', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
-        pollLivePlayback();
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function skipLivePrevious() {
-    const token = await getValidToken();
-    if (!token) return;
-    try {
-        await fetch('https://api.spotify.com/v1/me/player/previous', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
-        pollLivePlayback();
-    } catch (e) {
-        console.error(e);
     }
 }
 
@@ -628,13 +578,11 @@ function processFactualMetrics(items) {
 
     statHaze.innerText = calculateBakedIndicator(items, genreCounts);
 
-    // Build interactive genre taxonomy filters dynamically
     buildGenreFilters(genreCounts);
 
     chronologically.forEach((item, index) => {
         const track = item.track;
         
-        // Filter chronologically listed logs based on selected taxonomy pill
         if (selectedGenreFilter) {
             const mainArtistId = track.artists[0]?.id;
             const genres = globalArtistGenres[mainArtistId] || [];
@@ -751,7 +699,7 @@ function buildGenreFilters(genreCounts) {
 
     const sortedGenres = Object.entries(genreCounts)
         .sort((a,b) => b[1] - a[1])
-        .slice(0, 8); // Top 8 active genres
+        .slice(0, 8); 
 
     sortedGenres.forEach(([genre, count]) => {
         const pill = document.createElement('button');
@@ -764,11 +712,11 @@ function buildGenreFilters(genreCounts) {
         
         pill.addEventListener('click', () => {
             if (selectedGenreFilter === genre) {
-                selectedGenreFilter = ""; // Toggle clear
+                selectedGenreFilter = ""; 
             } else {
                 selectedGenreFilter = genre;
             }
-            processFactualMetrics(rawTracksCache); // Instantly repaint list with filter isolation
+            processFactualMetrics(rawTracksCache); 
         });
 
         filterContainer.appendChild(pill);
@@ -991,6 +939,7 @@ Respond ONLY with a valid, parseable JSON object matching this schema. Do not wr
 {
   "bpm": 122,
   "key": "G Major (Camelot 9B)",
+  "valence_mood": "Warm Euphoric",
   "trivia": "Provide a 3-sentence interesting factual context/trivia history about the production, writing, or reception of this song.",
   "mix_tip": "Provide a 2-sentence practical transition tip on how a DJ can cleanly mix this style or what tempo/vibe track to transition into next."
 }`;
@@ -1104,10 +1053,14 @@ function renderInspectorAIUI(parsed) {
     inspectBpm.classList.remove('hidden');
 
     inspectKey.innerText = parsed.key || '--';
+    document.getElementById('inspect-vibe-tag').innerText = parsed.valence_mood || '--';
     inspectTrivia.innerText = parsed.trivia || '--';
     inspectMix.innerText = parsed.mix_tip || '--';
 
     inspectAiContent.classList.remove('hidden');
+    
+    // Also feed stats context update dynamically to Full-screen canvas visualizer state
+    activeVisualizerBPM = parsed.bpm || 120;
     
     document.getElementById('hydration-badge').innerText = "AI MUSICOLOGY ACTIVE";
     document.getElementById('hydration-badge').className = "text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse";
@@ -1132,6 +1085,155 @@ function generateAIPrivacyClear() {
     localStorage.removeItem('ai_key');
     document.getElementById('ai-key').value = '';
     showUIStatus("AI credentials cleared from local environment.", false);
+}
+
+// FULL-SCREEN IMMERSIVE VISUALIZER ANIMATION CODE
+function openImmersiveVisualizer() {
+    const overlay = document.getElementById('fullscreen-viz');
+    overlay.classList.remove('translate-y-full', 'pointer-events-none', 'opacity-0');
+    overlay.classList.add('translate-y-0', 'opacity-100');
+
+    // Populate metadata indicators instantly
+    document.getElementById('viz-art').src = document.getElementById('live-art').src;
+    document.getElementById('viz-title').innerText = document.getElementById('live-title').innerText;
+    document.getElementById('viz-artist').innerText = document.getElementById('live-artist').innerText;
+    
+    const keyText = inspectKey.innerText !== '--' ? `${activeVisualizerBPM} BPM | ${inspectKey.innerText}` : 'SYNCING LIVE METRICS...';
+    document.getElementById('viz-bpm-key').innerText = keyText;
+
+    // Load lyrics/musicology commentary deck
+    const lyricsBox = document.getElementById('viz-floating-commentary');
+    if (inspectTrivia.innerText !== '--') {
+        lyricsBox.innerText = inspectTrivia.innerText;
+    } else {
+        lyricsBox.innerText = "Liner Notes Standby. Connect AI config to unlock musicology commentary...";
+    }
+
+    startImmersiveVisualizerRender();
+}
+
+function closeImmersiveVisualizer() {
+    const overlay = document.getElementById('fullscreen-viz');
+    overlay.classList.remove('translate-y-0', 'opacity-100');
+    overlay.classList.add('translate-y-full', 'pointer-events-none', 'opacity-0');
+
+    stopImmersiveVisualizerRender();
+}
+
+function updateImmersiveVisualizerProgress() {
+    const progressText = document.getElementById('viz-time-progress');
+    const durationText = document.getElementById('viz-time-duration');
+    const progressBar = document.getElementById('viz-progress-bar');
+
+    const format = (ms) => {
+        const s = Math.floor((ms / 1000) % 60);
+        const m = Math.floor(ms / 60000);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    if (currentPlayingTrackId) {
+        progressText.innerText = format(currentPlaybackProgressMs);
+        durationText.innerText = format(currentPlaybackDurationMs);
+        const pct = (currentPlaybackProgressMs / currentPlaybackDurationMs) * 100;
+        progressBar.style.width = `${Math.min(100, pct)}%`;
+
+        // Switch commentary stories halfway through playback
+        const lyricsBox = document.getElementById('viz-floating-commentary');
+        if (inspectTrivia.innerText !== '--' && inspectMix.innerText !== '--') {
+            if (pct > 50) {
+                lyricsBox.innerText = inspectMix.innerText;
+            } else {
+                lyricsBox.innerText = inspectTrivia.innerText;
+            }
+        }
+    }
+}
+
+function startImmersiveVisualizerRender() {
+    canvas = document.getElementById('viz-canvas');
+    ctx = canvas.getContext('2d');
+    
+    // Scale canvas resolution safely
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+
+    // Define sine wave structures
+    waves = [
+        { y: canvas.height * 0.5, length: 0.005, amplitude: 40, frequency: 0.02, color: 'rgba(29, 185, 84, 0.15)' },
+        { y: canvas.height * 0.5, length: 0.01, amplitude: 20, frequency: 0.04, color: 'rgba(16, 185, 129, 0.1)' },
+        { y: canvas.height * 0.5, length: 0.002, amplitude: 60, frequency: 0.01, color: 'rgba(52, 211, 153, 0.05)' }
+    ];
+
+    // Define particle array structures
+    particles = Array(40).fill(0).map(() => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 2 + 1,
+        vX: Math.random() * 0.5 - 0.25,
+        vY: Math.random() * -0.5 - 0.1
+    }));
+
+    animateVisualizer();
+}
+
+function stopImmersiveVisualizerRender() {
+    if (visualizerAnimationId) {
+        cancelAnimationFrame(visualizerAnimationId);
+        visualizerAnimationId = null;
+    }
+}
+
+function animateVisualizer() {
+    visualizerAnimationId = requestAnimationFrame(animateVisualizer);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Speed modifiers synced directly to active track BPM
+    const bpmSpeedMultiplier = currentPlaybackIsPlaying ? (activeVisualizerBPM / 120) : 0.15;
+
+    // Draw multi-layered ambient color morphing sine waves
+    waves.forEach(wave => {
+        ctx.beginPath();
+        ctx.moveTo(0, wave.y);
+
+        for (let i = 0; i < canvas.width; i++) {
+            const waveY = wave.y + Math.sin(i * wave.length + wave.frequency) * wave.amplitude;
+            ctx.lineTo(i, waveY);
+        }
+
+        ctx.strokeStyle = wave.color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Increment wave phase frequency synced to BPM speed
+        wave.frequency += 0.01 * bpmSpeedMultiplier;
+    });
+
+    // Draw and update ambient particles
+    particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.fill();
+
+        // Apply physical updates mapped to current tempo playback state
+        p.x += p.vX * bpmSpeedMultiplier;
+        p.y += p.vY * bpmSpeedMultiplier;
+
+        // Recycle boundaries
+        if (p.y < 0) {
+            p.y = canvas.height;
+            p.x = Math.random() * canvas.width;
+        }
+        if (p.x < 0 || p.x > canvas.width) {
+            p.vX *= -1;
+        }
+    });
+}
+
+// Redesigned AI Auditor is now disabled as features are fully parsed directly into HUD Left Panel
+function runAIAuditor() {
+    switchTab('ai');
 }
 
 function renderEmptyState() {
