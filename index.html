@@ -10,82 +10,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0b0b0c; color: #e5e7eb; }
-        .spotify-green { color: #1DB954; }
-        .spotify-bg { background-color: #1DB954; }
-        .spotify-bg:hover { background-color: #1ed760; }
-        .card-bg { background-color: #121214; border: 1px solid #222226; }
-        .card-bg:active { background-color: #1a1a1e; }
-    </style>
-</head>
-<body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none relative pb-28">
-
-    <!-- Premium Background Gradient Overlay -->
-    <div class="fixed inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-black -z-10"></div>
-
-    <!-- Header -->
-    <header class="w-full max-w-4xl flex justify-between items-center py-4 border-b border-zinc-800/60 mb-6">
-        <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
-        <div class="flex items-center space-x-2">
-            <button id="pwa-install-btn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold px-4 py-2 rounded-full transition hidden">
-                Install App
-            </button>
-            <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
-                Disconnect
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="w-full max-w-4xl flex flex-col items-center">
-        
-        <!-- Status/Error Banner -->
-        <div id="error-banner" class="w-full card-bg border-red-900 rounded-xl p-4 mb-6 text-red-400 text-sm hidden">
-            <p class="font-bold mb-1">Application Status/Error:</p>
-            <p id="error-message"></p>
-        </div>
-
-        <!-- Landing View -->
-        <div id="landing-view" class="text-center my-16 max-w-md hidden">
-            <h2 class="text-3xl font-extrabold mb-4">Track your streams.</h2>
-            <p class="text-zinc-400 mb-8 text-sm">An installable dashboard to view your recent streaming history and listening metrics instantly.</p>
-            <button onclick="loginWithSpotifyClick()" class="spotify-bg text-black font-bold text-base px-8 py-4 rounded-full shadow-lg transition">
-                Connect Spotify Account
-            </button>
-        </div>
-
-        <!-- Dashboard View -->
-        <div id="dashboard-view" class="w-full hidden">
-            
-            <!-- Tab Navigation Layout Switcher -->
-            <nav class="flex space-x-1 bg-zinc-900/80 p-1 rounded-xl mb-6 w-full max-w-md mx-auto border border-zinc-850">
-                <button onclick="switchTab('hub')" id="tab-btn-hub" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800">
-                    📊 Hub
-                </button>
-                <button onclick="switchTab('tracks')" id="tab-btn-tracks" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white">
-                    🎵 Tracks
-                </button>
-                <button onclick="switchTab('insights')" id="tab-btn-insights" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white">
-                    📈 Insights
-                </button>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamPulse Pro</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#121212">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
         body { background-color: #09090b; color: #f4f4f5; }
         .spotify-green { color: #1DB954; }
         .spotify-bg { background-color: #1DB954; }
         .spotify-bg:hover { background-color: #1ed760; }
         .card-bg { background-color: #09090b; border: 1px solid #27272a; }
-        .card-bg:active { background-color: #18181b; }
+        .card-bg:hover { border-color: #3f3f46; }
         /* Custom scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #09090b; }
@@ -94,7 +24,7 @@
 </head>
 <body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none relative pb-32">
 
-    <!-- Background Layer -->
+    <!-- Premium Background Gradient Overlay -->
     <div class="fixed inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-black -z-10"></div>
 
     <!-- Header -->
@@ -191,7 +121,7 @@
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-3 w-full">
                     <div class="text-left w-full sm:w-auto">
                         <h2 class="text-lg font-semibold tracking-wide">Interactive Stream Queue</h2>
-                        <p class="text-xs text-zinc-500">Slide the tracking indicator fully to the right to add any track directly to your active playback session.</p>
+                        <p class="text-xs text-zinc-500 font-normal">Slide the tracking indicator fully to the right to add any track directly to your active playback session.</p>
                     </div>
                     <div class="flex items-center gap-2 w-full sm:w-auto">
                         <input id="search-input" type="text" placeholder="Filter tracked list..." class="bg-zinc-900 border border-zinc-800 text-xs px-3 py-1.5 rounded-lg text-white w-full sm:w-48 focus:outline-none focus:border-zinc-700 transition" oninput="filterTracks()">
@@ -317,10 +247,10 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
         </div>
     </div>
 
+    <!-- MAIN JAVASCRIPT CODE -->
     <script>
         const CLIENT_ID = '997e4ee06e624c7aaf77a45f30e74394'; 
         const REDIRECT_URI = window.location.origin + window.location.pathname; 
-        // Request playback state modifiers
         const SCOPE = 'user-read-recently-played playlist-modify-public user-modify-playback-state';
 
         const logoutBtn = document.getElementById('logout-btn');
@@ -349,7 +279,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
         const modalGenres = document.getElementById('modal-genres');
         const modalAlbum = document.getElementById('modal-album');
         const modalRelease = document.getElementById('modal-release');
-        const modalPopularity = document.getElementById('modal-popularity');
+        const modalPopularityElement = document.getElementById('modal-popularity');
         const modalTimestamp = document.getElementById('modal-timestamp');
 
         // Slider Queue State
@@ -358,6 +288,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
         let startX = 0;
         let sliderWidth = 0;
         let activeUri = '';
+        let currentSlideX = 0; // State-based drag tracking instead of reading computed transform matrices
 
         let globalArtistGenres = {};
         let loadedTrackUris = [];
@@ -379,7 +310,24 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             errorBanner.classList.remove('hidden');
         }
 
-        // PWA Installation
+        function switchTab(tabName) {
+            document.getElementById('tab-content-hub').classList.add('hidden');
+            document.getElementById('tab-content-tracks').classList.add('hidden');
+            document.getElementById('tab-content-ai').classList.add('hidden');
+
+            const btnHub = document.getElementById('tab-btn-hub');
+            const btnTracks = document.getElementById('tab-btn-tracks');
+            const btnAi = document.getElementById('tab-btn-ai');
+
+            btnHub.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white";
+            btnTracks.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white";
+            btnAi.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white";
+
+            document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabName === 'ai' ? 'ai' : tabName}`);
+            activeBtn.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800";
+        }
+
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -410,7 +358,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                 }
             }
 
-            // Fill AI Config fields
             const savedProvider = localStorage.getItem('ai_provider') || 'openai';
             const savedKey = localStorage.getItem('ai_key') || '';
             document.getElementById('ai-provider').value = savedProvider;
@@ -507,7 +454,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             }
         }
 
-        // Relative time string helper
         function getRelativeTime(playedAtString) {
             const playedAt = new Date(playedAtString);
             const now = new Date();
@@ -523,13 +469,11 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             return playedAt.toLocaleDateString([], { month: 'short', day: 'numeric' });
         }
 
-        // Exact time helper
         function getAbsoluteTime(playedAtString) {
             const playedAt = new Date(playedAtString);
             return playedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        // Strictly real metadata processing
         function processFactualMetrics(items) {
             tracksList.innerHTML = '';
             timelineContainer.innerHTML = '';
@@ -540,11 +484,9 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             let totalPopularity = 0;
             let genreCounts = {};
 
-            // Calculate precise gap metrics
-            // items is ordered newest to oldest, reverse it to analyze chronological playback intervals
             const chronologically = [...items].reverse();
 
-            chronologically.forEach((item, index) => {
+            chronologically.forEach((item) => {
                 const track = item.track;
                 if (!track) return;
                 
@@ -565,7 +507,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             const sortedGenres = Object.keys(genreCounts).sort((a,b) => genreCounts[b] - genreCounts[a]);
             statTopGenre.innerText = sortedGenres.length > 0 ? sortedGenres[0] : 'None';
 
-            // Build history audit timeline
             chronologically.forEach((item, index) => {
                 const track = item.track;
                 const playedAtStr = item.played_at;
@@ -582,7 +523,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                     const currentStart = currentEnd - trackDuration;
                     
                     const gapMs = currentStart - prevEnd;
-                    if (gapMs > 5000) { // Gap greater than 5 seconds
+                    if (gapMs > 5000) {
                         const gapSec = Math.round(gapMs / 1000);
                         const gapMin = Math.round(gapSec / 60);
                         if (gapMin > 0) {
@@ -605,27 +546,21 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                     </div>
                     ${gapText ? `<p class="text-[10px] text-zinc-500 font-medium tracking-wider mt-0.5 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800/40 inline-block uppercase">${gapText}</p>` : ''}
                 `;
-                timelineContainer.prepend(logNode); // reverse chronological output for user reading (newest on top)
+                timelineContainer.prepend(logNode);
             });
 
-            // Build Queue Controller Cards
+            // Event listener assignment to avoid quote mismatch runtime issues
             items.forEach((item, index) => {
                 const track = item.track;
                 const relativeTime = getRelativeTime(item.played_at);
-                const absoluteTime = getAbsoluteTime(item.played_at);
                 const albumArt = track.album?.images[1]?.url || 'https://via.placeholder.com/150';
                 const trackName = track.name;
                 const artistName = track.artists.map(a => a.name).join(', ');
                 const mainArtistId = track.artists[0]?.id;
-
-                const cleanTrackTitle = trackName.replace(/'/g, "\\'").replace(/"/g, '\\"');
-                const cleanArtistTitle = artistName.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 const previewUrl = track.preview_url || '';
 
                 const card = document.createElement('div');
                 card.className = 'card-bg rounded-xl p-3.5 flex flex-col justify-between cursor-pointer transition duration-150 transform active:scale-[0.99] relative overflow-hidden';
-                card.setAttribute('onclick', `openModal('${track.id}', '${mainArtistId}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}', '${track.album?.name}', '${track.album?.release_date}', ${track.popularity}, '${item.played_at}')`);
-                card.setAttribute('data-index', index);
                 
                 card.innerHTML = `
                     <div class="flex items-start justify-between space-x-3 min-w-0">
@@ -637,33 +572,50 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
                                 <p class="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider mt-1 block">${relativeTime}</p>
                             </div>
                         </div>
-                        <button onclick="handlePlayClick(event, '${track.id}', '${cleanTrackTitle}', '${cleanArtistTitle}', '${albumArt}', '${previewUrl}')" class="w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-800 flex-shrink-0 text-white flex items-center justify-center transition">
+                        <button class="play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-800 flex-shrink-0 text-white flex items-center justify-center transition">
                             <svg class="w-2.5 h-2.5 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         </button>
                     </div>
 
-                    <!-- Slide-To-Queue Interactive Widget -->
-                    <div class="relative w-full h-8 bg-zinc-950 rounded-full border border-zinc-800/80 overflow-hidden mt-3.5 select-none flex items-center justify-center pointer-events-auto" onclick="event.stopPropagation()">
+                    <div class="slider-container relative w-full h-8 bg-zinc-950 rounded-full border border-zinc-800/80 overflow-hidden mt-3.5 select-none flex items-center justify-center pointer-events-auto">
                         <span class="text-[9px] text-zinc-500 font-extrabold uppercase tracking-widest slider-text">Slide to Queue</span>
-                        <div class="absolute left-0 top-0 bottom-0 w-8 bg-emerald-500 rounded-full flex items-center justify-center cursor-pointer transition-colors active:scale-95 slider-handle" 
-                             onmousedown="initSlider(event, '${track.uri}')" 
-                             ontouchstart="initSlider(event, '${track.uri}')">
+                        <div class="absolute left-0 top-0 bottom-0 w-8 bg-emerald-500 rounded-full flex items-center justify-center cursor-pointer transition-colors active:scale-95 slider-handle">
                             <span class="text-black font-extrabold text-xs pointer-events-none">➔</span>
                         </div>
                     </div>
                 `;
+
+                // Safe click targeting separation
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('.slider-container') || e.target.closest('.play-btn')) {
+                        return; 
+                    }
+                    openModal(track.id, mainArtistId, trackName, artistName, albumArt, track.album?.name, track.album?.release_date, track.popularity, item.played_at);
+                });
+
+                const playBtn = card.querySelector('.play-btn');
+                playBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    playTrackPreview(track.id, trackName, artistName, albumArt, previewUrl);
+                });
+
+                const sliderHandle = card.querySelector('.slider-handle');
+                sliderHandle.addEventListener('mousedown', (e) => initSlider(e, track.uri));
+                sliderHandle.addEventListener('touchstart', (e) => initSlider(e, track.uri));
+
                 tracksList.appendChild(card);
             });
 
             trackCount.innerText = `${items.length} tracks`;
         }
 
-        // Slide Gestures system
+        // Slide drag implementation
         function initSlider(e, uri) {
             e.preventDefault();
             isSliding = true;
             activeHandle = e.currentTarget;
             activeUri = uri;
+            currentSlideX = 0;
             
             const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
             startX = clientX;
@@ -684,6 +636,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             let deltaX = clientX - startX;
             
             deltaX = Math.max(0, Math.min(deltaX, sliderWidth));
+            currentSlideX = deltaX; // Save tracking value locally
             
             activeHandle.style.transform = `translateX(${deltaX}px)`;
             
@@ -700,14 +653,8 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             document.removeEventListener('mouseup', endSlide);
             document.removeEventListener('touchend', endSlide);
 
-            const transformMatrix = window.getComputedStyle(activeHandle).transform;
-            let currentX = 0;
-            if (transformMatrix && transformMatrix !== 'none') {
-                const values = transformMatrix.split('(')[1].split(')')[0].split(',');
-                currentX = parseFloat(values[4]) || 0;
-            }
-
-            if (currentX >= sliderWidth * 0.85) {
+            // Access local tracking coordinate
+            if (currentSlideX >= sliderWidth * 0.85) {
                 activeHandle.style.transition = 'transform 0.15s ease-out';
                 activeHandle.style.transform = `translateX(${sliderWidth}px)`;
                 
@@ -752,7 +699,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             }, 200);
         }
 
-        // Add to active Spotify Queue Endpoint
         async function addToSpotifyQueue(trackUri) {
             const token = await getValidToken();
             if (!token) return false;
@@ -795,7 +741,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             trackCount.innerText = `${visibleCount} match${visibleCount !== 1 ? 'es' : ''}`;
         }
 
-        // Media player functions
         function handlePlayClick(event, trackId, title, artist, artUrl, previewUrl) {
             event.stopPropagation();
             playTrackPreview(trackId, title, artist, artUrl, previewUrl);
@@ -880,7 +825,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             player.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
         }
 
-        // Details dialog (Factual properties only)
         function openModal(trackId, artistId, title, artist, artUrl, albumName, releaseDate, popularity, playedAt) {
             const genres = globalArtistGenres[artistId] || [];
 
@@ -890,7 +834,7 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             modalGenres.innerText = genres.length > 0 ? genres.slice(0, 3).join(', ') : 'Not returned by Spotify';
             modalAlbum.innerText = albumName || 'Unknown Album';
             modalRelease.innerText = releaseDate || 'Unavailable';
-            modalPopularity.innerText = `${popularity}%`;
+            modalPopularityElement.innerText = `${popularity}%`;
             modalTimestamp.innerText = `${new Date(playedAt).toLocaleString()}`;
 
             infoModal.classList.remove('hidden');
@@ -912,7 +856,6 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
             }
         }
 
-        // AI DJ Assistant Implementation
         function saveAIConfig() {
             const provider = document.getElementById('ai-provider').value;
             const key = document.getElementById('ai-key').value.trim();
@@ -1189,4 +1132,4 @@ Waiting for execution prompt... Provide config and click "Run Analysis" to query
         init();
     </script>
 </body>
-    </html>
+</html>
