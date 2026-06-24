@@ -15,7 +15,7 @@
         .spotify-bg { background-color: #1DB954; }
         .spotify-bg:hover { background-color: #1ed760; }
         
-        /* Premium glassmorphic panels */
+        /* Glassmorphic elements */
         .glass-card {
             background-color: rgba(255, 255, 255, 0.015);
             backdrop-filter: blur(12px);
@@ -52,20 +52,25 @@
             <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
             <span id="hydration-badge" class="text-[9px] bg-zinc-850 text-zinc-400 border border-zinc-800 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Connect-Only Mode</span>
         </div>
-        <div class="flex items-center space-x-2">
-            <!-- Configuration Cog Trigger -->
-            <button onclick="toggleConfigDrawer()" class="p-2 bg-zinc-800 hover:bg-zinc-750 text-white rounded-full transition" title="API Configuration">
-                ⚙️
-            </button>
-            <button id="night-shift-btn" onclick="toggleNightShift()" class="bg-zinc-800 hover:bg-zinc-750 text-amber-400 text-xs font-semibold px-3 py-2 rounded-full transition" title="Eye-strain Night Dimmer">
-                🌙 Night Shift: Off
-            </button>
-            <button id="pwa-install-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-semibold px-3 py-2 rounded-full transition hidden">
-                Install App
-            </button>
-            <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
-                Disconnect
-            </button>
+        
+        <!-- Live Spotify Profile Sync badge -->
+        <div class="flex items-center space-x-3">
+            <div id="profile-badge" class="flex items-center space-x-2 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-full hidden">
+                <img id="profile-img" class="w-5 h-5 rounded-full object-cover" src="" alt="">
+                <span id="profile-name" class="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">User</span>
+            </div>
+
+            <div class="flex items-center space-x-1.5">
+                <button onclick="toggleConfigDrawer()" class="p-2 bg-zinc-800 hover:bg-zinc-750 text-white rounded-full transition" title="API Configuration">
+                    ⚙️
+                </button>
+                <button id="night-shift-btn" onclick="toggleNightShift()" class="bg-zinc-800 hover:bg-zinc-750 text-amber-400 text-xs font-semibold px-3 py-2 rounded-full transition" title="Eye-strain Night Dimmer">
+                    🌙 Night Shift: Off
+                </button>
+                <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
+                    Disconnect
+                </button>
+            </div>
         </div>
     </header>
 
@@ -111,16 +116,16 @@
         <!-- Landing View -->
         <div id="landing-view" class="text-center my-16 max-w-md hidden">
             <h2 class="text-3xl font-extrabold mb-4">Real-time Spotify Companion.</h2>
-            <p class="text-zinc-400 mb-8 text-sm">A professional music companion displaying precise scrobble logs, loops protection, and live musicology audits.</p>
+            <p class="text-zinc-400 mb-8 text-sm">A professional music companion displaying precise scrobble logs, loop-breaking controls, and live musicology audits.</p>
             <button onclick="loginWithSpotifyClick()" class="spotify-bg text-black font-bold text-base px-8 py-4 rounded-full shadow-lg transition">
                 Connect Spotify Account
             </button>
         </div>
 
-        <!-- Dashboard Workspace Grid (Fluid Dual-Column Cockpit) -->
+        <!-- Dashboard View (Double Column Grid) -->
         <div id="dashboard-view" class="w-full hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            <!-- LEFT PANEL: HUD Now Playing & AI Inspector (5 columns) -->
+            <!-- LEFT PANEL: HUD Now Playing (5 columns) -->
             <div class="lg:col-span-5 space-y-6 lg:sticky lg:top-4">
                 
                 <!-- Realtime Playback Widget -->
@@ -135,7 +140,7 @@
                                         <div class="w-2 h-2 rounded-full bg-[#050507]"></div>
                                     </div>
                                 </div>
-                                <img id="live-art" class="absolute inset-0 w-16 h-14 rounded-xl object-cover bg-zinc-900 shadow-xl border border-white/5 transition-transform group-hover:scale-95 duration-300" src="https://via.placeholder.com/150" alt="Album Art">
+                                <img id="live-art" class="absolute inset-0 w-16 h-16 rounded-xl object-cover bg-zinc-900 shadow-xl border border-white/5 transition-transform group-hover:scale-95 duration-300" src="https://via.placeholder.com/150" alt="Album Art">
                             </div>
 
                             <div class="min-w-0 flex-1">
@@ -181,70 +186,25 @@
                     </div>
                 </div>
 
-                <!-- Unified AI Musicology Inspector Panel -->
-                <div id="inspector-panel" class="glass-card rounded-2xl p-5 space-y-4 shadow-xl">
-                    <div class="flex justify-between items-center border-b border-white/5 pb-3">
-                        <div>
-                            <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Active Analysis</h3>
-                            <p id="inspect-desc-sub" class="text-[9px] text-zinc-500 mt-0.5">Click any song inside your list or timeline below to audit.</p>
-                        </div>
-                        <span id="inspect-bpm" class="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider hidden">-- BPM</span>
+                <!-- Highlight: Quick action compiler box -->
+                <div class="w-full glass-card rounded-2xl p-5 space-y-4">
+                    <div>
+                        <h3 class="font-bold text-white text-sm">Vibe Compiler Hub</h3>
+                        <p class="text-xs text-zinc-400 mt-0.5">Bundle subsets of your scrobbles into public compiled sessions directly in your Spotify profile.</p>
                     </div>
-
-                    <!-- Selected track target details -->
-                    <div id="inspect-header-details" class="flex items-center space-x-3 bg-zinc-950 p-2.5 rounded-xl border border-zinc-850/50 hidden">
-                        <img id="inspect-art" class="w-10 h-10 rounded-lg object-cover" src="" alt="">
-                        <div class="min-w-0 flex-1">
-                            <p id="inspect-title" class="text-xs font-bold text-white truncate"></p>
-                            <p id="inspect-artist" class="text-[10px] text-zinc-400 truncate"></p>
-                        </div>
-                    </div>
-
-                    <!-- Dynamic Genres display context -->
-                    <div id="inspect-genres-box" class="hidden">
-                        <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider mb-1.5">Factual Genres</span>
-                        <div id="inspect-genres-cloud" class="flex flex-wrap gap-1"></div>
-                    </div>
-
-                    <!-- AI Insights Display Block (Beautifully formatted and categorized) -->
-                    <div id="inspect-ai-content" class="space-y-4 hidden">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-850 flex flex-col justify-between">
-                                <span class="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">Musical Key</span>
-                                <span id="inspect-key" class="text-emerald-400 font-bold font-mono text-sm mt-1">--</span>
-                            </div>
-                            <div class="bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-850 flex flex-col justify-between">
-                                <span class="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">Mood Signature</span>
-                                <span id="inspect-vibe-tag" class="text-amber-500 font-bold font-mono text-[11px] mt-1 truncate">--</span>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <div class="flex items-center space-x-1.5 text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
-                                <span>📖</span>
-                                <span>Song Trivia & Liner Notes</span>
-                            </div>
-                            <p id="inspect-trivia" class="text-zinc-300 text-xs leading-relaxed font-mono bg-zinc-950/40 p-3 rounded-xl border border-zinc-850/50">--</p>
-                        </div>
-                        <div class="space-y-1">
-                            <div class="flex items-center space-x-1.5 text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
-                                <span>🎛️</span>
-                                <span>DJ Transition Guidance</span>
-                            </div>
-                            <p id="inspect-mix" class="text-zinc-300 text-xs leading-relaxed font-mono bg-zinc-950/40 p-3 rounded-xl border border-zinc-850/50">--</p>
-                        </div>
-                    </div>
-
-                    <!-- Actionable Similar Tracks Recommendations Index -->
-                    <div id="inspect-similar-box" class="space-y-2 hidden">
-                        <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider">Similar Audios Recommendations</span>
-                        <div id="inspect-similar-list" class="space-y-2 max-h-52 overflow-y-auto pr-1">
-                            <!-- Similar tracks lists injected dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Connection prompt badge -->
-                    <div id="inspect-placeholder" class="text-center py-10 text-zinc-500 text-xs space-y-3">
-                        <p>No track details selected. Audit any item on your history stream to view genres, release notes, and keys.</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="generateVibePlaylist('energy')" class="bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] font-bold p-2.5 rounded-xl transition text-center flex flex-col justify-between items-center min-h-[60px]">
+                            <span class="text-xs">🔥</span>
+                            <span>Peak Energy</span>
+                        </button>
+                        <button onclick="generateVibePlaylist('indie')" class="bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] font-bold p-2.5 rounded-xl transition text-center flex flex-col justify-between items-center min-h-[60px]">
+                            <span>☕</span>
+                            <span>Indie Cuts</span>
+                        </button>
+                        <button onclick="generateVibePlaylist('retro')" class="bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-[10px] font-bold p-2.5 rounded-xl transition text-center flex flex-col justify-between items-center min-h-[60px]">
+                            <span>⏳</span>
+                            <span>Classic Eras</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -307,6 +267,71 @@
 
         </div>
     </main>
+
+    <!-- FLOATING SLIDE-OVER INSPECTOR HUD PANEL (Thought-Through Anti-Modal Navigation) -->
+    <div id="inspector-overlay" class="fixed top-0 right-0 bottom-0 w-full sm:w-[420px] bg-zinc-950/95 border-l border-zinc-800 p-6 shadow-2xl z-40 transform translate-x-full transition-transform duration-300 ease-in-out backdrop-blur-md hidden pointer-events-none">
+        <div class="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
+            <div>
+                <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Active Inspector</h3>
+                <p id="inspect-desc-sub" class="text-[9px] text-zinc-500 mt-0.5">Direct musicology evaluation grid.</p>
+            </div>
+            <button onclick="closeInspectorOverlay()" class="text-zinc-400 hover:text-white text-2xl font-bold p-1 cursor-pointer pointer-events-auto">&times;</button>
+        </div>
+
+        <div class="space-y-5 overflow-y-auto h-[calc(100%-60px)] pr-1 pointer-events-auto">
+            <!-- Selected track target details -->
+            <div id="inspect-header-details" class="flex items-center space-x-3 bg-zinc-900/60 p-3 rounded-xl border border-zinc-850">
+                <img id="inspect-art" class="w-12 h-12 rounded-lg object-cover" src="" alt="">
+                <div class="min-w-0 flex-1">
+                    <p id="inspect-title" class="text-xs font-extrabold text-white truncate"></p>
+                    <p id="inspect-artist" class="text-[10px] text-zinc-400 truncate"></p>
+                    <span id="inspect-bpm" class="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono px-1.5 py-0.5 rounded font-bold uppercase tracking-wider inline-block mt-1">-- BPM</span>
+                </div>
+            </div>
+
+            <!-- Dynamic Genres display context -->
+            <div id="inspect-genres-box" class="hidden">
+                <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider mb-1.5">Factual Genres</span>
+                <div id="inspect-genres-cloud" class="flex flex-wrap gap-1"></div>
+            </div>
+
+            <!-- AI Insights Display Block (Beautifully formatted and categorized) -->
+            <div id="inspect-ai-content" class="space-y-4 hidden">
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-zinc-900/40 p-2.5 rounded-xl border border-zinc-850 flex flex-col justify-between">
+                        <span class="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">Musical Key</span>
+                        <span id="inspect-key" class="text-emerald-400 font-bold font-mono text-sm mt-1">--</span>
+                    </div>
+                    <div class="bg-zinc-900/40 p-2.5 rounded-xl border border-zinc-850 flex flex-col justify-between">
+                        <span class="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">Mood Signature</span>
+                        <span id="inspect-vibe-tag" class="text-amber-500 font-bold font-mono text-[11px] mt-1 truncate">--</span>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-1.5 text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
+                        <span>📖</span>
+                        <span>Song Trivia & Liner Notes</span>
+                    </div>
+                    <p id="inspect-trivia" class="text-zinc-300 text-xs leading-relaxed font-mono bg-zinc-950/40 p-3.5 rounded-xl border border-zinc-850/50">--</p>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-1.5 text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
+                        <span>🎛️</span>
+                        <span>DJ Transition Guidance</span>
+                    </div>
+                    <p id="inspect-mix" class="text-zinc-300 text-xs leading-relaxed font-mono bg-zinc-950/40 p-3.5 rounded-xl border border-zinc-850/50">--</p>
+                </div>
+            </div>
+
+            <!-- SMART DYNAMIC RECOMMENDATIONS (Actionable Similar Tracks) -->
+            <div id="inspect-similar-box" class="space-y-2 hidden">
+                <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider">Algorithmic Similar Tracks</span>
+                <div id="inspect-similar-list" class="space-y-2">
+                    <!-- Similar tracks lists injected dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- IMMERSIVE FULL-SCREEN VISUALIZER OVERLAY (High Mode) -->
     <div id="fullscreen-viz" class="fixed inset-0 bg-black/95 z-50 flex flex-col justify-between p-6 transform translate-y-full transition-all duration-500 ease-out pointer-events-none opacity-0">
