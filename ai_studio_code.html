@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse Pro</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #09090b; color: #f4f4f5; transition: filter 0.3s ease; }
+        .spotify-green { color: #1DB954; }
+        .spotify-bg { background-color: #1DB954; }
+        .spotify-bg:hover { background-color: #1ed760; }
+        .card-bg { background-color: #09090b; border: 1px solid #27272a; }
+        .card-bg:hover { border-color: #3f3f46; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+        
+        /* Night Shift amber simulation */
+        .night-shift {
+            filter: sepia(0.35) brightness(0.8) contrast(0.95);
+        }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col items-center justify-start p-4 select-none relative pb-32">
+
+    <!-- Night Shift Blend Overlay -->
+    <div id="night-shift-overlay" class="fixed inset-0 bg-amber-500/5 pointer-events-none z-50 mix-blend-multiply transition-opacity duration-300 opacity-0"></div>
+
+    <!-- Premium Background Gradient Overlay -->
+    <div class="fixed inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-black -z-10"></div>
+
+    <!-- Header -->
+    <header class="w-full max-w-4xl flex justify-between items-center py-4 border-b border-zinc-800/80 mb-6">
+        <div class="flex items-center space-x-3">
+            <h1 class="text-xl font-bold tracking-tight">Stream<span class="spotify-green">Pulse</span></h1>
+            <span class="text-[9px] bg-zinc-800 text-zinc-400 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Connect-Only Mode</span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button id="night-shift-btn" onclick="toggleNightShift()" class="bg-zinc-800 hover:bg-zinc-750 text-amber-400 text-xs font-semibold px-3 py-2 rounded-full transition" title="Eye-strain Night Dimmer">
+                🌙 Night Shift: Off
+            </button>
+            <button id="pwa-install-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-semibold px-3 py-2 rounded-full transition hidden">
+                Install App
+            </button>
+            <button id="logout-btn" class="bg-zinc-800 hover:bg-zinc-750 text-white text-sm font-semibold px-4 py-2 rounded-full transition hidden">
+                Disconnect
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-4xl flex flex-col items-center w-full">
+        
+        <!-- Status/Error Banner -->
+        <div id="error-banner" class="w-full card-bg border-red-900/60 rounded-xl p-4 mb-6 text-red-400 text-sm hidden">
+            <p class="font-bold mb-1">System Status/Notification:</p>
+            <p id="error-message"></p>
+        </div>
+
+        <!-- Landing View -->
+        <div id="landing-view" class="text-center my-16 max-w-md hidden">
+            <h2 class="text-3xl font-extrabold mb-4">Real-time Spotify Auditing.</h2>
+            <p class="text-zinc-400 mb-8 text-sm">A developer-grade dashboard displaying precise playback history logs, gap durations, and dynamic queue controls linked directly to your Spotify session.</p>
+            <button onclick="loginWithSpotifyClick()" class="spotify-bg text-black font-bold text-base px-8 py-4 rounded-full shadow-lg transition">
+                Connect Spotify Account
+            </button>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="w-full hidden space-y-6">
+            
+            <!-- Realtime Spotify Active Playback Widget -->
+            <div id="live-playback-widget" class="w-full bg-zinc-950/90 border border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_15px_rgba(16,185,129,0.05)] hidden">
+                <div class="flex items-center space-x-3 w-full sm:w-auto">
+                    <div class="relative flex-shrink-0">
+                        <img id="live-art" class="w-12 h-12 rounded-lg object-cover bg-zinc-900" src="" alt="Album Art">
+                        <span class="absolute -top-1 -left-1 flex h-3.5 w-3.5">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-extrabold uppercase tracking-widest">Live Now</span>
+                            <span id="live-device" class="text-[10px] text-zinc-500 truncate">Device</span>
+                        </div>
+                        <p id="live-title" class="font-bold text-white text-sm truncate mt-0.5">Song Title</p>
+                        <p id="live-artist" class="text-xs text-zinc-400 truncate">Artist Name</p>
+                    </div>
+                </div>
+
+                <!-- Progress Bar & Continuous Time Status -->
+                <div class="w-full sm:max-w-xs flex flex-col items-end">
+                    <span id="live-time" class="text-[10px] text-zinc-400 font-mono">0:00 / 0:00</span>
+                    <div class="w-full bg-zinc-900 h-1.5 rounded-full mt-1.5 overflow-hidden border border-zinc-800">
+                        <div id="live-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-1000 linear"></div>
+                    </div>
+                </div>
+
+                <!-- Hardware controls routed natively to Spotify App -->
+                <div class="flex items-center space-x-3 flex-shrink-0">
+                    <button onclick="skipLivePrevious()" class="p-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white rounded-full transition active:scale-90" title="Previous Track">
+                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg>
+                    </button>
+                    <button onclick="toggleLivePlayback()" class="p-2.5 bg-white text-black hover:bg-zinc-200 rounded-full transition active:scale-90" title="Play/Pause">
+                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" id="live-play-pause-icon"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <button onclick="skipLiveNext()" class="p-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white rounded-full transition active:scale-90" title="Next Track">
+                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Switcher -->
+            <nav class="flex space-x-1 bg-zinc-900/60 p-1 rounded-xl w-full max-w-md mx-auto border border-zinc-800/60">
+                <button onclick="switchTab('hub')" id="tab-btn-hub" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800">
+                    📊 Listening Logs
+                </button>
+                <button onclick="switchTab('tracks')" id="tab-btn-tracks" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white">
+                    🎵 Queue Controller
+                </button>
+                <button onclick="switchTab('ai')" id="tab-btn-ai" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white">
+                    🤖 AI Assistant
+                </button>
+            </nav>
+
+            <!-- TAB 1: HUB & AUDIT LOGS -->
+            <div id="tab-content-hub" class="w-full space-y-6">
+                <!-- Precision Stats Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="card-bg rounded-xl p-4 text-center">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Loaded Volume</p>
+                        <p id="stat-count" class="text-lg font-extrabold text-white">Calculating...</p>
+                    </div>
+                    <div class="card-bg rounded-xl p-4 text-center">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Audited Runtime</p>
+                        <p id="stat-runtime" class="text-lg font-extrabold text-white">Calculating...</p>
+                    </div>
+                    <div class="card-bg rounded-xl p-4 text-center">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Average Popularity</p>
+                        <p id="stat-popularity" class="text-lg font-extrabold text-white">Calculating...</p>
+                    </div>
+                    <div class="card-bg rounded-xl p-4 text-center">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Top Shared Genre</p>
+                        <p id="stat-topgenre" class="text-xs font-extrabold text-emerald-400 truncate mt-1">Analyzing...</p>
+                    </div>
+                </div>
+
+                <!-- Playlist Compiling profiles -->
+                <div class="w-full card-bg rounded-xl p-5 space-y-4">
+                    <div>
+                        <h3 class="font-bold text-white text-sm">Vibe Compiler Hub</h3>
+                        <p class="text-xs text-zinc-400 mt-0.5">Directly bundle subsets of your tracked scrobbles into public mood sessions in your library.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button onclick="generateVibePlaylist('energy')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold p-3 rounded-lg transition text-left flex items-center justify-between">
+                            <span>🔥 Peak Energy Mix <p class="text-[9px] text-zinc-500 font-normal mt-0.5">Popularity > 70%</p></span>
+                            <span class="text-emerald-500">➔</span>
+                        </button>
+                        <button onclick="generateVibePlaylist('indie')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold p-3 rounded-lg transition text-left flex items-center justify-between">
+                            <span>☕ Indie & Deep Cuts <p class="text-[9px] text-zinc-500 font-normal mt-0.5">Popularity ≤ 60%</p></span>
+                            <span class="text-emerald-500">➔</span>
+                        </button>
+                        <button onclick="generateVibePlaylist('retro')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold p-3 rounded-lg transition text-left flex items-center justify-between">
+                            <span>⏳ Classic Golden Eras <p class="text-[9px] text-zinc-500 font-normal mt-0.5">Released pre-2020</p></span>
+                            <span class="text-emerald-500">➔</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PLAYBACK LOG TIMELINE -->
+                <div class="card-bg rounded-xl p-5">
+                    <h3 class="text-sm font-bold text-white mb-4 tracking-wide uppercase text-zinc-400">Stream History Timeline Logs</h3>
+                    <div id="timeline-container" class="relative pl-6 border-l-2 border-zinc-800 space-y-6">
+                        <!-- Filled programmatically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: QUEUE CONTROLLER -->
+            <div id="tab-content-tracks" class="w-full hidden space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-3 w-full">
+                    <div class="text-left w-full sm:w-auto">
+                        <h2 class="text-lg font-semibold tracking-wide">Interactive Stream Queue</h2>
+                        <p class="text-xs text-zinc-500 font-normal">Slide the tracking indicator fully to the right to add any track directly to your active playback session.</p>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <input id="search-input" type="text" placeholder="Filter tracked list..." class="bg-zinc-900 border border-zinc-800 text-xs px-3 py-1.5 rounded-lg text-white w-full sm:w-48 focus:outline-none focus:border-zinc-700 transition" oninput="filterTracks()">
+                        <span id="track-count" class="text-xs text-zinc-400 bg-zinc-800 px-2.5 py-1.5 rounded-lg whitespace-nowrap">0 tracks</span>
+                    </div>
+                </div>
+                
+                <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <!-- TAB 3: AI ASSISTANT -->
+            <div id="tab-content-ai" class="w-full hidden space-y-4">
+                <div class="card-bg rounded-xl p-5 space-y-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Self-Hosted AI DJ Assistant</h2>
+                        <p class="text-xs text-zinc-400 mt-1">To get true musical metrics, analysis, and recommendations, securely enter your own AI endpoint token. Keys are processed strictly inside your browser's direct fetches.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-zinc-500 mb-1.5">AI Provider</label>
+                            <select id="ai-provider" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-zinc-700">
+                                <option value="openai">OpenAI (GPT-4o-mini)</option>
+                                <option value="gemini">Google Gemini (Gemini 2.5 Flash)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-zinc-500 mb-1.5">API Key / Token</label>
+                            <input id="ai-key" type="password" placeholder="sk-..." class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-zinc-700">
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-2 pt-2">
+                        <button onclick="saveAIConfig()" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition">
+                            Save Config
+                        </button>
+                        <button onclick="generateAIPrivacyClear()" class="text-zinc-500 hover:text-zinc-300 text-xs px-2 py-2.5 transition">
+                            Clear Token
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-bg rounded-xl p-5 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Analysis Terminal</h3>
+                        <button id="ai-run-btn" onclick="runAIAuditor()" class="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold px-4 py-2.5 rounded-full transition shadow-md">
+                            Run Analysis
+                        </button>
+                    </div>
+
+                    <div id="ai-output" class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 text-zinc-300 font-mono text-xs whitespace-pre-wrap min-h-[150px] max-h-[400px] overflow-y-auto leading-relaxed">
+Waiting for execution prompt... Provide config and click "Run Analysis" to query the model on your active tracks.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Unified Detail Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-200" onclick="handleOutsideModalClick(event)">
+        <div id="modal-container" class="card-bg w-full max-w-sm rounded-2xl p-6 relative transform scale-95 transition-transform duration-200">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl font-bold p-1">×</button>
+            
+            <div class="flex items-center space-x-4 mb-5">
+                <img id="modal-img" class="w-16 h-16 rounded-lg object-cover shadow-md bg-zinc-900">
+                <div class="min-w-0 flex-1">
+                    <h3 id="modal-title" class="font-bold text-white text-base truncate">Song Title</h3>
+                    <p id="modal-artist" class="text-sm text-zinc-400 truncate">Artist Name</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-sm">
+                <div class="border-b border-zinc-800 pb-3">
+                    <p class="text-xs text-zinc-500 font-medium uppercase tracking-wider">Artist Genres</p>
+                    <p id="modal-genres" class="text-white font-semibold mt-0.5">Loading...</p>
+                </div>
+                <div class="grid grid-cols-1 gap-2.5">
+                    <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
+                        <p class="text-[10px] text-zinc-500 font-medium uppercase">Album Details</p>
+                        <p id="modal-album" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
+                            <p class="text-[10px] text-zinc-500 font-medium uppercase">Release Date</p>
+                            <p id="modal-release" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
+                        </div>
+                        <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
+                            <p class="text-[10px] text-zinc-500 font-medium uppercase">Track Popularity</p>
+                            <p id="modal-popularity" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
+                        </div>
+                    </div>
+                    <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/60">
+                        <p class="text-[10px] text-zinc-500 font-medium uppercase">Exact Audit Finish Time</p>
+                        <p id="modal-timestamp" class="text-zinc-200 text-xs font-semibold mt-1">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT LINK -->
+    <script src="app.js"></script>
+</body>
+</html>

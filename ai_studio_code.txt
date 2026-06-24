@@ -1,0 +1,22 @@
+{
+  "short_name": "StreamPulse",
+  "name": "StreamPulse Pro Dashboard",
+  "description": "Factual Spotify playback auditing logs and queue controls.",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/192/000000/spotify.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/000000/spotify.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "display": "standalone",
+  "orientation": "portrait"
+}
