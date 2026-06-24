@@ -7,11 +7,8 @@ const pwaInstallBtn = document.getElementById('pwa-install-btn');
 const landingView = document.getElementById('landing-view');
 const dashboardView = document.getElementById('dashboard-view');
 const tracksList = document.getElementById('tracks-list');
-const trackCount = document.getElementById('track-count');
-const errorBanner = document.getElementById('error-banner');
-const errorMessage = document.getElementById('error-message');
 
-// Cool Metrics Elements
+// Cool Metrics Layout Elements
 const statRuntime = document.getElementById('stat-runtime');
 const statIndie = document.getElementById('stat-indie');
 const statGenresCount = document.getElementById('stat-genres-count');
@@ -19,7 +16,6 @@ const statHaze = document.getElementById('stat-haze');
 const timelineContainer = document.getElementById('timeline-container');
 
 // Unified AI Inspector Elements
-const inspectorPanel = document.getElementById('inspector-panel');
 const inspectBpm = document.getElementById('inspect-bpm');
 const inspectHeader = document.getElementById('inspect-header-details');
 const inspectArt = document.getElementById('inspect-art');
@@ -32,7 +28,7 @@ const inspectMix = document.getElementById('inspect-mix');
 const inspectSimilarList = document.getElementById('inspect-similar-list');
 const inspectPlaceholder = document.getElementById('inspect-placeholder');
 
-// Slider Queue States
+// Slider Queue State
 let isSliding = false;
 let activeHandle = null;
 let startX = 0;
@@ -40,7 +36,7 @@ let sliderWidth = 0;
 let activeUri = '';
 let currentSlideX = 0;
 
-// Active Player States
+// Playback Polling States
 let livePlaybackInterval = null;
 let localPlaybackTimeTracker = null;
 let currentPlaybackProgressMs = 0;
@@ -54,10 +50,13 @@ let currentPlayingTrackId = "";
 let currentPlayingTrackName = "";
 let currentPlayingArtistName = "";
 
+// Dynamic Taxonomy Filters State
+let selectedGenreFilter = "";
+
 let globalArtistGenres = {};
 let loadedTrackUris = [];
 let rawTracksCache = [];
-let aiInspectionCache = {}; // Cache results to prevent redundant API token spends
+let aiInspectionCache = {}; 
 let deferredPrompt;
 
 function showUIStatus(msg, isError = true) {
@@ -107,29 +106,54 @@ function toggleNightShift() {
     }
 }
 
-function switchTab(tabName) {
+function switchWorkspaceTab(tabName) {
     document.getElementById('tab-content-hub').classList.add('hidden');
     document.getElementById('tab-content-tracks').classList.add('hidden');
 
-    const btnHub = document.getElementById('tab-btn-hub');
-    const btnTracks = document.getElementById('tab-btn-tracks');
+    const btnTimeline = document.getElementById('ws-tab-btn-timeline');
+    const btnQueue = document.getElementById('ws-tab-btn-queue');
 
-    btnHub.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white";
-    btnTracks.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white";
+    btnTimeline.className = "text-xs font-bold uppercase tracking-wider pb-2 border-b-2 border-transparent text-zinc-500 hover:text-zinc-300";
+    btnQueue.className = "text-xs font-bold uppercase tracking-wider pb-2 border-b-2 border-transparent text-zinc-500 hover:text-zinc-300";
 
-    document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
-    const activeBtn = document.getElementById(`tab-btn-${tabName}`);
-    activeBtn.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800";
+    if (tabName === 'timeline') {
+        document.getElementById('tab-content-hub').classList.remove('hidden');
+        btnTimeline.className = "text-xs font-bold uppercase tracking-wider pb-2 border-b-2 border-emerald-500 text-white";
+    } else {
+        document.getElementById('tab-content-tracks').classList.remove('hidden');
+        btnQueue.className = "text-xs font-bold uppercase tracking-wider pb-2 border-b-2 border-emerald-500 text-white";
+    }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    pwaInstallBtn.classList.remove('hidden');
+    pwaInstallBtn.onclick = async () => {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            pwaInstallBtn.classList.add('hidden');
+        }
+        deferredPrompt = null;
+    };
+});
+
+// Settings save block directly checks layout states before execution
+function loadSavedAIConfig() {
     const savedProvider = localStorage.getItem('ai_provider') || 'openai';
     const savedKey = localStorage.getItem('ai_key') || '';
     const provEl = document.getElementById('ai-provider');
     const keyEl = document.getElementById('ai-key');
     if (provEl) provEl.value = savedProvider;
     if (keyEl) keyEl.value = savedKey;
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadSavedAIConfig);
+} else {
+    loadSavedAIConfig();
+}
 
 async function init() {
     if ('serviceWorker' in navigator) {
@@ -433,55 +457,37 @@ async function getLiveAILinerNotes() {
     }
 }
 
-// Spotify artist-loop breaker: Injects contrasting genre artists into active player queue
+// Spotify loop protection using algorithmically generated recommendation vectors
 async function breakArtistLoop() {
     const token = await getValidToken();
-    if (!token || rawTracksCache.length === 0) return;
+    if (!token || !currentPlayingTrackId) return;
 
-    let currentArtistName = "";
+    showUIStatus("Breaking loop... Fetching native Spotify recommendation seeds.", false);
+
     try {
-        const response = await fetch('https://api.spotify.com/v1/me/player', {
+        // Query Spotify Recommendations directly using active item as a seed track
+        const response = await fetch(`https://api.spotify.com/v1/recommendations?seed_tracks=${currentPlayingTrackId}&limit=3`, {
             headers: { 'Authorization': 'Bearer ' + token }
         });
-        if (response.ok && response.status !== 204) {
+
+        if (response.ok) {
             const data = await response.json();
-            currentArtistName = data.item?.artists[0]?.name || "";
+            const recTracks = data.tracks || [];
+            let queuedCount = 0;
+
+            for (let track of recTracks) {
+                const success = await addToSpotifyQueue(track.uri);
+                if (success) queuedCount++;
+            }
+
+            if (queuedCount > 0) {
+                showUIStatus(`Playback Guard active: Successfully loaded and queued ${queuedCount} similar songs directly from Spotify's Recommendations API.`, false);
+                return;
+            }
         }
-    } catch (e) { 
-        console.error(e); 
-    }
-
-    // Filter recently played cache for 3 tracks with completely different artists
-    const contrastingTracks = [];
-    const seenArtists = new Set([currentArtistName]);
-
-    for (let item of rawTracksCache) {
-        const track = item.track;
-        if (!track) continue;
-        const artist = track.artists[0]?.name;
-        if (artist && !seenArtists.has(artist)) {
-            contrastingTracks.push(track);
-            seenArtists.add(artist);
-            if (contrastingTracks.length >= 3) break;
-        }
-    }
-
-    if (contrastingTracks.length === 0) {
-        showUIStatus("Could not identify contrasting track profiles in recent history.", true);
-        return;
-    }
-
-    // Queue tracks sequentially to force playback variety
-    let successCount = 0;
-    for (let track of contrastingTracks) {
-        const success = await addToSpotifyQueue(track.uri);
-        if (success) successCount++;
-    }
-
-    if (successCount > 0) {
-        showUIStatus(`Loop Breaker Activated! Successfully queued ${successCount} contrasting tracks into your session.`, false);
-    } else {
-        showUIStatus("Vibe Injection failed. Ensure Spotify has an active playback session on your device.", true);
+        throw new Error("Target player unavailable or recommendation endpoint blocked.");
+    } catch (err) {
+        showUIStatus("Autoplay Injection failure. Is your Spotify player session active?", true);
     }
 }
 
@@ -622,8 +628,19 @@ function processFactualMetrics(items) {
 
     statHaze.innerText = calculateBakedIndicator(items, genreCounts);
 
+    // Build interactive genre taxonomy filters dynamically
+    buildGenreFilters(genreCounts);
+
     chronologically.forEach((item, index) => {
         const track = item.track;
+        
+        // Filter chronologically listed logs based on selected taxonomy pill
+        if (selectedGenreFilter) {
+            const mainArtistId = track.artists[0]?.id;
+            const genres = globalArtistGenres[mainArtistId] || [];
+            if (!genres.includes(selectedGenreFilter)) return;
+        }
+
         const playedAtStr = item.played_at;
         const relativeTime = getRelativeTime(playedAtStr);
         const absoluteTime = getAbsoluteTime(playedAtStr);
@@ -662,7 +679,6 @@ function processFactualMetrics(items) {
             ${gapText ? `<p class="text-[10px] text-zinc-500 font-medium tracking-wider mt-0.5 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800/40 inline-block uppercase">${gapText}</p>` : ''}
         `;
         
-        // Tap timeline scrobble node to auto load context into inspector HUD panel
         logNode.addEventListener('click', () => {
             inspectTrackDetails(track.id);
         });
@@ -676,7 +692,6 @@ function processFactualMetrics(items) {
         const albumArt = track.album?.images[1]?.url || 'https://via.placeholder.com/150';
         const trackName = track.name;
         const artistName = track.artists.map(a => a.name).join(', ');
-        const mainArtistId = track.artists[0]?.id;
 
         const card = document.createElement('div');
         card.className = 'card-bg rounded-xl p-3.5 flex flex-col justify-between cursor-pointer transition duration-150 transform active:scale-[0.99] relative overflow-hidden';
@@ -728,6 +743,36 @@ function processFactualMetrics(items) {
     });
 
     trackCount.innerText = `${items.length} tracks`;
+}
+
+function buildGenreFilters(genreCounts) {
+    const filterContainer = document.getElementById('genre-filter-container');
+    filterContainer.innerHTML = '';
+
+    const sortedGenres = Object.entries(genreCounts)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 8); // Top 8 active genres
+
+    sortedGenres.forEach(([genre, count]) => {
+        const pill = document.createElement('button');
+        const isActive = selectedGenreFilter === genre;
+        
+        pill.className = `text-[10px] font-bold px-2.5 py-1 rounded-full border transition active:scale-95 whitespace-nowrap uppercase tracking-wider ${
+            isActive ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:border-zinc-700'
+        }`;
+        pill.innerText = `${genre} (${count})`;
+        
+        pill.addEventListener('click', () => {
+            if (selectedGenreFilter === genre) {
+                selectedGenreFilter = ""; // Toggle clear
+            } else {
+                selectedGenreFilter = genre;
+            }
+            processFactualMetrics(rawTracksCache); // Instantly repaint list with filter isolation
+        });
+
+        filterContainer.appendChild(pill);
+    });
 }
 
 function initSlider(e, uri) {
@@ -887,7 +932,7 @@ function filterTracks() {
     trackCount.innerText = `${visibleCount} match${visibleCount !== 1 ? 'es' : ''}`;
 }
 
-// On-demand single track analysis & similar track generation
+// On-demand single track analysis & similar track generation (Fills left column HUD)
 async function inspectTrackDetails(trackId) {
     const matchedItem = rawTracksCache.find(item => item.track?.id === trackId);
     if (!matchedItem) return;
@@ -900,10 +945,27 @@ async function inspectTrackDetails(trackId) {
     inspectHeader.classList.remove('hidden');
     inspectAiContent.classList.add('hidden');
     inspectBpm.classList.add('hidden');
+    
+    // Clear and hide Spotify recommended seeds layout while loading
+    document.getElementById('inspect-similar-box').classList.add('hidden');
 
     inspectArt.src = track.album?.images[2]?.url || 'https://via.placeholder.com/80';
     inspectTitle.innerText = track.name;
     inspectArtist.innerText = track.artists.map(a => a.name).join(', ');
+
+    // Repaint Genre Taxonomy index list in selected track inspector HUD
+    const genresBox = document.getElementById('inspect-genres-box');
+    const genresCloud = document.getElementById('inspect-genres-cloud');
+    const genres = globalArtistGenres[mainArtistId] || [];
+    if (genres.length > 0) {
+        genresCloud.innerHTML = genres.map(g => `<span class="bg-zinc-950 border border-zinc-850 text-zinc-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">${g}</span>`).join('');
+        genresBox.classList.remove('hidden');
+    } else {
+        genresBox.classList.add('hidden');
+    }
+
+    // Load Spotify native recommendations seeds alongside AI data
+    getFactualSpotifyRecommendations(trackId);
 
     // Read AI cache to prevent spending tokens twice
     const cachedData = aiInspectionCache[trackId];
@@ -914,31 +976,23 @@ async function inspectTrackDetails(trackId) {
 
     const key = localStorage.getItem('ai_key');
     if (!key) {
-        // No key entered, simply maintain factual metadata layout
         return;
     }
 
     // Begin background hydration securely using stored AI keys
-    aiInspectionCache[trackId] = 'loading';
+    aiInspectionCache[trackId] = "loading";
     const provider = localStorage.getItem('ai_provider') || 'openai';
 
-    const promptText = `Analyze this track: "${track.name}" by ${track.artists.map(a=>a.name).join(', ')}. Provide:
-1. Accurate Tempo (BPM) and Camelot Key.
-2. An interesting, factual 2-sentence song trivia fact.
-3. A 2-sentence practical transition mix tip.
-4. 3 similar tracks (must match style/vibe).
+    const promptText = `Analyze this specific track: "${track.name}" by ${track.artists.map(a => a.name).join(', ')} (released in ${track.album.release_date}, album: "${track.album.name}").
+
+Please use your structural neural knowledge of musicology and music history to provide interesting, accurate song facts. 
 
 Respond ONLY with a valid, parseable JSON object matching this schema. Do not write markdown wraps or code blocks:
 {
-  "bpm": 124,
-  "key": "A Minor (8A)",
-  "trivia": "Song trivia fact goes here.",
-  "mix_tip": "DJ transition advice goes here.",
-  "similar": [
-    {"title": "Track Name 1", "artist": "Artist Name 1"},
-    {"title": "Track Name 2", "artist": "Artist Name 2"},
-    {"title": "Track Name 3", "artist": "Artist Name 3"}
-  ]
+  "bpm": 122,
+  "key": "G Major (Camelot 9B)",
+  "trivia": "Provide a 3-sentence interesting factual context/trivia history about the production, writing, or reception of this song.",
+  "mix_tip": "Provide a 2-sentence practical transition tip on how a DJ can cleanly mix this style or what tempo/vibe track to transition into next."
 }`;
 
     try {
@@ -977,12 +1031,71 @@ Respond ONLY with a valid, parseable JSON object matching this schema. Do not wr
         }
 
         const parsed = JSON.parse(responseText);
-        aiInspectionCache[trackId] = parsed; // cache safely
+        aiInspectionCache[trackId] = parsed; 
         renderInspectorAIUI(parsed);
 
     } catch (e) {
         console.error("AI Insight failed:", e);
         aiInspectionCache[trackId] = null;
+    }
+}
+
+// Fetch factual similar tracks natively via Spotify Web Recommendations
+async function getFactualSpotifyRecommendations(trackId) {
+    const token = await getValidToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(`https://api.spotify.com/v1/recommendations?seed_tracks=${trackId}&limit=5`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const recTracks = data.tracks || [];
+            
+            inspectSimilarList.innerHTML = '';
+            
+            if (recTracks.length > 0) {
+                recTracks.forEach(trackItem => {
+                    const row = document.createElement('div');
+                    row.className = "bg-zinc-950 p-2.5 border border-zinc-850/80 rounded-xl flex justify-between items-center text-xs font-mono";
+                    row.innerHTML = `
+                        <div class="min-w-0 pr-2 flex items-center space-x-2 flex-1">
+                            <img src="${trackItem.album?.images[2]?.url || 'https://via.placeholder.com/40'}" class="w-7 h-7 rounded object-cover flex-shrink-0">
+                            <div class="min-w-0">
+                                <p class="text-zinc-200 font-bold truncate text-[11px]">${trackItem.name}</p>
+                                <p class="text-zinc-500 text-[9px] truncate">${trackItem.artists.map(a => a.name).join(', ')}</p>
+                            </div>
+                        </div>
+                        <button onclick="handleProgrammaticQueue(event, '${trackItem.uri}')" class="bg-zinc-900 border border-zinc-800 text-[9px] hover:bg-zinc-850 text-emerald-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap">
+                            🔌 Queue Similar
+                        </button>
+                    `;
+                    inspectSimilarList.appendChild(row);
+                });
+                document.getElementById('inspect-similar-box').classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        console.error("Recommendations failed:", err);
+    }
+}
+
+// Immediate similar track injector click helper
+async function handleProgrammaticQueue(event, trackUri) {
+    event.stopPropagation();
+    const btn = event.currentTarget;
+    btn.innerText = "QUEUEING...";
+
+    const success = await addToSpotifyQueue(trackUri);
+    if (success) {
+        btn.innerText = "QUEUED ⚡";
+        btn.className = "bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap";
+    } else {
+        btn.innerText = "FAILED";
+        btn.className = "bg-red-950/20 border border-red-900/40 text-[9px] text-red-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap";
+        showUIStatus("Could not search or inject queue. Ensure Spotify has an active player running on your account.", true);
     }
 }
 
@@ -994,63 +1107,10 @@ function renderInspectorAIUI(parsed) {
     inspectTrivia.innerText = parsed.trivia || '--';
     inspectMix.innerText = parsed.mix_tip || '--';
 
-    inspectSimilarList.innerHTML = '';
-    if (parsed.similar && Array.isArray(parsed.similar)) {
-        parsed.similar.forEach(item => {
-            const recNode = document.createElement('div');
-            recNode.className = "bg-zinc-950 p-3 rounded-xl border border-zinc-850/80 flex justify-between items-center text-xs font-mono";
-            recNode.innerHTML = `
-                <div class="min-w-0 pr-2">
-                    <p class="text-zinc-200 font-bold truncate">${item.title}</p>
-                    <p class="text-zinc-500 text-[10px] truncate">${item.artist}</p>
-                </div>
-                <button onclick="handleProgrammaticQueueSearch(event, '${item.title.replace(/'/g, "\\'")}', '${item.artist.replace(/'/g, "\\'")}')" class="bg-zinc-900 border border-zinc-800 text-[9px] hover:bg-zinc-850 text-emerald-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap">
-                    🔌 Queue Similar
-                </button>
-            `;
-            inspectSimilarList.appendChild(recNode);
-        });
-    }
-
     inspectAiContent.classList.remove('hidden');
     
     document.getElementById('hydration-badge').innerText = "AI MUSICOLOGY ACTIVE";
     document.getElementById('hydration-badge').className = "text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse";
-}
-
-// Actionable recommendation: Programmatically queries similar tracks and adds to queue
-async function handleProgrammaticQueueSearch(event, title, artist) {
-    event.stopPropagation();
-    const btn = event.currentTarget;
-    btn.innerText = "SEARCHING...";
-    
-    const token = await getValidToken();
-    if (!token) return;
-
-    try {
-        const response = await fetch(`https://api.spotify.com/v1/search?q=track:${encodeURIComponent(title)}+artist:${encodeURIComponent(artist)}&type=track&limit=1`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const tracks = data.tracks?.items || [];
-            if (tracks.length > 0) {
-                const trackUri = tracks[0].uri;
-                const success = await addToSpotifyQueue(trackUri);
-                if (success) {
-                    btn.innerText = "QUEUED ⚡";
-                    btn.className = "bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap";
-                    return;
-                }
-            }
-        }
-        throw new Error("Failed to find or queue recommended item.");
-    } catch (e) {
-        btn.innerText = "FAILED";
-        btn.className = "bg-red-950/20 border border-red-900/40 text-[9px] text-red-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap";
-        showUIStatus("Could not search or inject queue. Ensure Spotify has an active player running on your account.", true);
-    }
 }
 
 function inspectActiveTrack() {
