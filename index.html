@@ -16,7 +16,6 @@
         .spotify-bg:hover { background-color: #1ed760; }
         .card-bg { background-color: #0c0c0e; border: 1px solid #1f1f23; }
         .card-bg:hover { border-color: #2d2d34; }
-        
         /* Custom scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #09090b; }
@@ -67,7 +66,7 @@
         <div class="space-y-4 text-xs">
             <p class="text-zinc-400 leading-relaxed">Provide your personal keys. Caching and analysis process entirely locally inside your client session.</p>
             <div>
-                <label class="block text-[10px] font-extrabold uppercase text-zinc-500 mb-1.5">Model Provider</label>
+                <label class="block text-[10px] font-extrabold uppercase text-zinc-500 mb-1.5">AI Provider</label>
                 <select id="ai-provider" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-zinc-700">
                     <option value="openai">OpenAI (GPT-4o-mini)</option>
                     <option value="gemini">Google Gemini (Gemini 2.5 Flash)</option>
@@ -99,7 +98,7 @@
 
         <!-- Landing View -->
         <div id="landing-view" class="text-center my-16 max-w-md hidden">
-            <h2 class="text-3xl font-extrabold mb-4">Factual Spotify Auditing.</h2>
+            <h2 class="text-3xl font-extrabold mb-4">Real-time Spotify Auditing.</h2>
             <p class="text-zinc-400 mb-8 text-sm">An integrated music companion showing real-time scrobble histories, loop-breaking controls, and deep-dive song analysis.</p>
             <button onclick="loginWithSpotifyClick()" class="spotify-bg text-black font-bold text-base px-8 py-4 rounded-full shadow-lg transition">
                 Connect Spotify Account
@@ -115,9 +114,9 @@
                 <!-- Realtime Playback Widget -->
                 <div id="live-playback-widget" class="w-full bg-zinc-950 border border-emerald-500/20 rounded-2xl p-5 flex flex-col space-y-4 shadow-[0_0_20px_rgba(16,185,129,0.05)] transition-all">
                     
-                    <div class="flex items-center space-x-3 w-full min-w-0 cursor-pointer" onclick="inspectActiveTrack()">
+                    <div class="flex items-center space-x-3 w-full min-w-0 cursor-pointer" onclick="openImmersiveVisualizer()" title="Tap to enter full-screen visualizer">
                         <div class="relative flex-shrink-0">
-                            <img id="live-art" class="w-14 h-14 rounded-xl object-cover bg-zinc-900" src="" alt="Album Art">
+                            <img id="live-art" class="w-14 h-14 rounded-xl object-cover bg-zinc-900 shadow-md" src="" alt="Album Art">
                             <span class="absolute -top-1 -left-1 flex h-3.5 w-3.5">
                               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
@@ -125,7 +124,7 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center space-x-1.5">
-                                <span class="text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-extrabold uppercase tracking-widest">Active</span>
+                                <span class="text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-extrabold uppercase tracking-widest animate-pulse">Now Playing</span>
                                 <span id="live-device" class="text-[9px] text-zinc-500 truncate">Device</span>
                             </div>
                             <p id="live-title" class="font-extrabold text-white text-base truncate mt-0.5">Song Title</p>
@@ -190,25 +189,37 @@
                         <div id="inspect-genres-cloud" class="flex flex-wrap gap-1"></div>
                     </div>
 
-                    <!-- AI Insights Display Block -->
+                    <!-- AI Insights Display Block (Beautifully formatted and categorized) -->
                     <div id="inspect-ai-content" class="space-y-4 hidden">
-                        <div>
-                            <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider">Predicted Musical Key</span>
-                            <span id="inspect-key" class="text-emerald-400 font-bold font-mono text-xs mt-0.5 inline-block">--</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-850 flex flex-col justify-between">
+                                <span class="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">Musical Key</span>
+                                <span id="inspect-key" class="text-emerald-400 font-bold font-mono text-sm mt-1">--</span>
+                            </div>
+                            <div class="bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-850 flex flex-col justify-between">
+                                <span class="text-zinc-500 text-[9px] font-bold uppercase tracking-wider">Mood Signature</span>
+                                <span id="inspect-vibe-tag" class="text-amber-500 font-bold font-mono text-[11px] mt-1 truncate">--</span>
+                            </div>
                         </div>
                         <div class="space-y-1">
-                            <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider">Song Trivia & Liner Notes</span>
+                            <div class="flex items-center space-x-1.5 text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
+                                <span>📖</span>
+                                <span>Song Trivia & History</span>
+                            </div>
                             <p id="inspect-trivia" class="text-zinc-300 text-xs leading-relaxed font-mono bg-zinc-950/40 p-3 rounded-xl border border-zinc-850/50">--</p>
                         </div>
                         <div class="space-y-1">
-                            <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider">DJ Transition Guidance</span>
+                            <div class="flex items-center space-x-1.5 text-zinc-500 text-[9px] font-bold uppercase tracking-wider">
+                                <span>🎛️</span>
+                                <span>DJ Mixing Advice</span>
+                            </div>
                             <p id="inspect-mix" class="text-zinc-300 text-xs leading-relaxed font-mono bg-zinc-950/40 p-3 rounded-xl border border-zinc-850/50">--</p>
                         </div>
                     </div>
 
-                    <!-- SMART DYNAMIC RECOMMENDATIONS (Actionable Similar Tracks) -->
+                    <!-- Actionable Similar Tracks Recommendations Index -->
                     <div id="inspect-similar-box" class="space-y-2 hidden">
-                        <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider">Actionable Similar Tracks</span>
+                        <span class="text-zinc-500 text-[9px] font-bold uppercase block tracking-wider">Contextual Similar Tracks</span>
                         <div id="inspect-similar-list" class="space-y-2 max-h-52 overflow-y-auto pr-1">
                             <!-- Similar tracks lists injected dynamically -->
                         </div>
@@ -237,15 +248,15 @@
                         <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Unique Genres</p>
                         <p id="stat-genres-count" class="text-lg font-extrabold text-white">0</p>
                     </div>
-                    <div class="card-bg rounded-xl p-4 text-center">
-                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Baked Factor</p>
+                    <div class="card-bg rounded-xl p-4 text-center flex flex-col justify-between relative overflow-hidden">
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Haze Factor</p>
                         <p id="stat-haze" class="text-xs font-extrabold text-amber-500 mt-1">Scanning...</p>
                     </div>
                 </div>
 
                 <!-- Interactive Factual Genre Taxonomy Filters -->
                 <div class="card-bg rounded-xl p-4 space-y-2">
-                    <p class="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Genre Filters</p>
+                    <p class="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Genre Filter Rails</p>
                     <div id="genre-filter-container" class="flex flex-wrap gap-1.5">
                         <!-- Dynamic filter pills loaded here -->
                     </div>
@@ -279,6 +290,61 @@
 
         </div>
     </main>
+
+    <!-- IMMERSIVE FULL-SCREEN VISUALIZER OVERLAY -->
+    <div id="fullscreen-viz" class="fixed inset-0 bg-black/95 z-50 flex flex-col justify-between p-6 transform translate-y-full transition-transform duration-500 ease-out pointer-events-none opacity-0">
+        
+        <!-- Canvas animation background element -->
+        <canvas id="viz-canvas" class="absolute inset-0 w-full h-full pointer-events-none opacity-30"></canvas>
+
+        <!-- Top visualizer header dismiss option -->
+        <div class="relative z-10 flex justify-between items-center w-full max-w-4xl mx-auto">
+            <div class="flex items-center space-x-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                <span class="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Ambient Fluid Session</span>
+            </div>
+            <button onclick="closeImmersiveVisualizer()" class="text-zinc-400 hover:text-white text-3xl font-light p-2 cursor-pointer pointer-events-auto">&times;</button>
+        </div>
+
+        <!-- Center panel: giant art block and fluid particle stats -->
+        <div class="relative z-10 flex flex-col items-center justify-center text-center space-y-6 max-w-md mx-auto flex-1">
+            <img id="viz-art" class="w-64 h-64 sm:w-80 sm:h-80 rounded-2xl object-cover shadow-[0_0_50px_rgba(29,185,84,0.15)] bg-zinc-900 border border-zinc-800">
+            <div class="space-y-2">
+                <h2 id="viz-title" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight truncate max-w-xs sm:max-w-md">Song Title</h2>
+                <p id="viz-artist" class="text-sm sm:text-base text-zinc-400 truncate max-w-xs sm:max-w-md">Artist Name</p>
+                <p id="viz-bpm-key" class="text-xs font-mono font-bold text-emerald-400 tracking-wider">-- BPM | -- KEY</p>
+            </div>
+
+            <!-- Floating lyrics/musicology commentary deck -->
+            <div class="min-h-16 flex items-center justify-center px-4 w-full">
+                <p id="viz-floating-commentary" class="text-xs sm:text-sm text-zinc-300 font-medium italic animate-pulse transition-opacity duration-500 leading-relaxed font-mono">
+                    Standby. Accessing timeline audio metrics...
+                </p>
+            </div>
+        </div>
+
+        <!-- Bottom progress / playback panel controls -->
+        <div class="relative z-10 flex flex-col items-center space-y-4 w-full max-w-lg mx-auto pointer-events-auto">
+            <div class="w-full flex items-center space-x-4">
+                <span id="viz-time-progress" class="text-[10px] text-zinc-500 font-mono">0:00</span>
+                <div class="flex-1 bg-zinc-900 h-1 rounded-full overflow-hidden border border-zinc-800">
+                    <div id="viz-progress-bar" class="bg-emerald-500 h-full w-0"></div>
+                </div>
+                <span id="viz-time-duration" class="text-[10px] text-zinc-500 font-mono">0:00</span>
+            </div>
+            <div class="flex items-center space-x-6">
+                <button onclick="skipLivePrevious()" class="p-3 bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 text-white rounded-full transition active:scale-90">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg>
+                </button>
+                <button onclick="toggleLivePlayback()" class="p-4 bg-white text-black hover:bg-zinc-200 rounded-full transition active:scale-90 shadow-xl">
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" id="viz-play-pause-icon"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button onclick="skipLiveNext()" class="p-3 bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 text-white rounded-full transition active:scale-90">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- MAIN JAVASCRIPT LINK -->
     <script src="app.js"></script>
