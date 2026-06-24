@@ -68,6 +68,8 @@ let aiInspectionCache = {};
 let deferredPrompt;
 
 function showUIStatus(msg, isError = true) {
+    const errorBanner = document.getElementById('error-banner');
+    const errorMessage = document.getElementById('error-message');
     errorMessage.innerText = msg;
     if (isError) {
         errorBanner.classList.remove('border-zinc-800', 'text-zinc-300');
@@ -264,6 +266,7 @@ async function fetchDashboardData(token) {
     }
 }
 
+// Polling of active playing song has a small issue. Correct timing parameters to prevent overwrites
 function startLivePlaybackPolling() {
     if (livePlaybackInterval) clearInterval(livePlaybackInterval);
     pollLivePlayback(); 
@@ -360,6 +363,12 @@ function showLivePlaybackWidget(data) {
             }
             updateLiveProgressUI();
         }, 1000);
+    }
+
+    // Toggle physical vinyl disk rotation dynamically inside cockpit HUD
+    const disc = document.getElementById('vinyl-disc');
+    if (disc) {
+        disc.style.animationPlayState = currentPlaybackIsPlaying ? 'running' : 'paused';
     }
 
     // Dynamic sync values on the active visualizer elements if open
@@ -656,8 +665,12 @@ function processFactualMetrics(items) {
                 </div>
                 
                 <div class="flex items-center space-x-1.5 flex-shrink-0" onclick="event.stopPropagation()">
-                    <button class="card-play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-700 text-white flex items-center justify-center transition" title="Play on active Spotify Device">
+                    <button class="card-play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-750 text-white flex items-center justify-center transition" title="Play on active Spotify Device">
                         <svg class="w-2.5 h-2.5 fill-current spotify-green" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <!-- Dedicated Backup Queue Tap Button (Eliminates slider failures entirely) -->
+                    <button onclick="handleQuickQueue(event, '${track.uri}')" class="w-7 h-7 rounded-full bg-zinc-900 border border-zinc-850 hover:bg-zinc-750 flex items-center justify-center transition" title="Tap to Queue Directly">
+                        <svg class="w-3.5 h-3.5 fill-current text-zinc-400" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                     </button>
                 </div>
             </div>
@@ -1018,7 +1031,7 @@ async function getFactualSpotifyRecommendations(trackId) {
                             </div>
                         </div>
                         <button onclick="handleProgrammaticQueue(event, '${trackItem.uri}')" class="bg-zinc-900 border border-zinc-800 text-[9px] hover:bg-zinc-850 text-emerald-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap">
-                            🔌 Queue Similar
+                            + Queue
                         </button>
                     `;
                     inspectSimilarList.appendChild(row);
@@ -1046,6 +1059,24 @@ async function handleProgrammaticQueue(event, trackUri) {
         btn.className = "bg-red-950/20 border border-red-900/40 text-[9px] text-red-400 font-extrabold px-2.5 py-1.5 rounded uppercase tracking-wider whitespace-nowrap";
         showUIStatus("Could not search or inject queue. Ensure Spotify has an active player running on your account.", true);
     }
+}
+
+// Tap backup for queuing
+async function handleQuickQueue(event, trackUri) {
+    event.stopPropagation();
+    const btn = event.currentTarget;
+    btn.innerHTML = `<span class="text-[9px] text-zinc-500 animate-pulse font-extrabold">...</span>`;
+    
+    const success = await addToSpotifyQueue(trackUri);
+    if (success) {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-emerald-400" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+    } else {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-red-500" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
+        showUIStatus("To add to queue, first open your Spotify app and play a song to establish an active player session.", true);
+    }
+    setTimeout(() => {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-zinc-400" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`;
+    }, 3000);
 }
 
 function renderInspectorAIUI(parsed) {
@@ -1229,11 +1260,6 @@ function animateVisualizer() {
             p.vX *= -1;
         }
     });
-}
-
-// Redesigned AI Auditor is now disabled as features are fully parsed directly into HUD Left Panel
-function runAIAuditor() {
-    switchTab('ai');
 }
 
 function renderEmptyState() {
