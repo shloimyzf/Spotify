@@ -48,6 +48,7 @@ let currentPlaybackIsPlaying = false;
 let globalArtistGenres = {};
 let loadedTrackUris = [];
 let rawTracksCache = [];
+let aiHydratedMetrics = {}; // Stores advanced track metrics parsed dynamically from the AI DJ
 let deferredPrompt;
 
 function showUIStatus(msg, isError = true) {
@@ -112,7 +113,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
     };
 });
 
-// Load saved config directly on page boot
 window.addEventListener('DOMContentLoaded', () => {
     const savedProvider = localStorage.getItem('ai_provider') || 'openai';
     const savedKey = localStorage.getItem('ai_key') || '';
@@ -141,14 +141,14 @@ async function init() {
     const token = await getValidToken();
     if (token) { 
         showDashboard(token); 
-        startLivePlaybackPolling(); // Poll the Spotify currently-playing session automatically
+        startLivePlaybackPolling(); 
     } else { 
         logout();
     }
 }
 
 function logout() {
-    // DO NOT clear all localStorage, as it deletes saved API keys
+    // Only remove Spotify tokens to preserve AI Keys across sessions
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('expires_at');
@@ -237,7 +237,6 @@ async function fetchDashboardData(token) {
     }
 }
 
-// Live Polls Check Spotify Device Status under 30 seconds
 function startLivePlaybackPolling() {
     if (livePlaybackInterval) clearInterval(livePlaybackInterval);
     pollLivePlayback(); 
@@ -295,7 +294,6 @@ function showLivePlaybackWidget(data) {
 
     if (localPlaybackTimeTracker) clearInterval(localPlaybackTimeTracker);
 
-    // Continuously update timer second-by-second to track active status
     if (currentPlaybackIsPlaying) {
         localPlaybackTimeTracker = setInterval(() => {
             currentPlaybackProgressMs += 1000;
@@ -478,7 +476,6 @@ function processFactualMetrics(items) {
         timelineContainer.prepend(logNode);
     });
 
-    // standard Event delegation prevents inline escaping failures
     items.forEach((item, index) => {
         const track = item.track;
         const relativeTime = getRelativeTime(item.played_at);
@@ -487,9 +484,19 @@ function processFactualMetrics(items) {
         const artistName = track.artists.map(a => a.name).join(', ');
         const mainArtistId = track.artists[0]?.id;
 
+        // Check if AI analysis has populated metrics for this card
+        const aiMetrics = aiHydratedMetrics[track.id];
+        const badgeHTML = aiMetrics ? `
+            <div class="flex items-center space-x-1 mt-1 text-[9px] font-mono tracking-wider font-extrabold text-emerald-400">
+                <span>⚡ ${aiMetrics.tempo} BPM</span>
+                <span>•</span>
+                <span>${aiMetrics.key}</span>
+            </div>
+        ` : '';
+
         const card = document.createElement('div');
         card.className = 'card-bg rounded-xl p-3.5 flex flex-col justify-between cursor-pointer transition duration-150 transform active:scale-[0.99] relative overflow-hidden';
-                
+        
         card.innerHTML = `
             <div class="flex items-start justify-between space-x-3 min-w-0">
                 <div class="flex items-center space-x-3 min-w-0">
@@ -497,7 +504,10 @@ function processFactualMetrics(items) {
                     <div class="min-w-0">
                         <p class="font-bold text-white truncate text-xs">${trackName}</p>
                         <p class="text-[10px] text-zinc-400 truncate">${artistName}</p>
-                        <p class="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider mt-1 block">${relativeTime}</p>
+                        <div class="flex items-center space-x-1.5 mt-0.5">
+                            <span class="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider block">${relativeTime}</span>
+                        </div>
+                        ${badgeHTML}
                     </div>
                 </div>
                 <button class="play-btn w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-700 active:scale-90 text-white flex items-center justify-center transition" title="Play directly on Spotify Device">
@@ -513,7 +523,6 @@ function processFactualMetrics(items) {
             </div>
         `;
 
-        // Safe click targeting separation
         card.addEventListener('click', (e) => {
             if (e.target.closest('.slider-container') || e.target.closest('.play-btn')) {
                 return; 
@@ -537,7 +546,6 @@ function processFactualMetrics(items) {
     trackCount.innerText = `${items.length} tracks`;
 }
 
-// Slide drag implementation
 function initSlider(e, uri) {
     e.preventDefault();
     isSliding = true;
@@ -564,7 +572,7 @@ function handleSlide(e) {
     let deltaX = clientX - startX;
             
     deltaX = Math.max(0, Math.min(deltaX, sliderWidth));
-    currentSlideX = deltaX; // save real coordinate state directly
+    currentSlideX = deltaX;
             
     activeHandle.style.transform = `translateX(${deltaX}px)`;
             
@@ -581,7 +589,6 @@ async function endSlide(e) {
     document.removeEventListener('mouseup', endSlide);
     document.removeEventListener('touchend', endSlide);
 
-    // Access local tracking coordinate
     if (currentSlideX >= sliderWidth * 0.85) {
         activeHandle.style.transition = 'transform 0.15s ease-out';
         activeHandle.style.transform = `translateX(${sliderWidth}px)`;
@@ -627,7 +634,6 @@ function resetSlider(handle) {
     }, 200);
 }
 
-// Active Player Track playback triggers
 async function playTrackOnSpotify(trackUri) {
     const token = await getValidToken();
     if (!token) return;
@@ -643,9 +649,8 @@ async function playTrackOnSpotify(trackUri) {
         });
 
         if (response.status === 204) {
-            pollLivePlayback(); // refresh the live card immediately
+            pollLivePlayback();
         } else if (response.status === 404) {
-            // Fallback to launching deep links directly if player connection is missing
             window.location.href = trackUri;
         } else {
             window.location.href = trackUri;
@@ -709,6 +714,29 @@ function openModal(trackId, artistId, title, artist, artUrl, albumName, releaseD
     modalPopularityElement.innerText = `${popularity}%`;
     modalTimestamp.innerText = `${new Date(playedAt).toLocaleString()}`;
 
+    // Read AI metrics fallback cleanly
+    const aiMetrics = aiHydratedMetrics[trackId];
+    const keyBadge = document.getElementById('modal-key-badge');
+    const aiMetricsPanel = document.getElementById('modal-ai-metrics-panel');
+
+    if (aiMetrics) {
+        keyBadge.innerText = `Key: ${aiMetrics.key}`;
+        keyBadge.classList.remove('hidden');
+        aiMetricsPanel.classList.remove('hidden');
+
+        document.getElementById('modal-metric-danceability-val').innerText = `${Math.round(aiMetrics.danceability * 100)}%`;
+        document.getElementById('modal-metric-danceability-bar').style.width = `${Math.round(aiMetrics.danceability * 100)}%`;
+
+        document.getElementById('modal-metric-energy-val').innerText = `${Math.round(aiMetrics.energy * 100)}%`;
+        document.getElementById('modal-metric-energy-bar').style.width = `${Math.round(aiMetrics.energy * 100)}%`;
+
+        document.getElementById('modal-metric-happiness-val').innerText = `${Math.round(aiMetrics.valence * 100)}%`;
+        document.getElementById('modal-metric-happiness-bar').style.width = `${Math.round(aiMetrics.valence * 100)}%`;
+    } else {
+        keyBadge.classList.add('hidden');
+        aiMetricsPanel.classList.add('hidden');
+    }
+
     infoModal.classList.remove('hidden');
     setTimeout(() => {
         infoModal.classList.remove('opacity-0');
@@ -743,33 +771,57 @@ function generateAIPrivacyClear() {
     showUIStatus("AI credentials cleared from local environment.", false);
 }
 
+// App Hydration through targeted AI DJ analytics payload (BPM, Keys, Traits)
 async function runAIAuditor() {
     const provider = localStorage.getItem('ai_provider') || 'openai';
     const key = localStorage.getItem('ai_key');
-    const outputTerminal = document.getElementById('ai-output');
     const runBtn = document.getElementById('ai-run-btn');
+    const chatThread = document.getElementById('chat-thread');
 
     if (!key) {
-        outputTerminal.innerText = "Error: No API key found. Please enter your API key in the configuration block above and save it.";
+        appendChatMessage("System", "Error: No API key found. Please enter your API key in the configuration block to continue.");
         return;
     }
 
     if (rawTracksCache.length === 0) {
-        outputTerminal.innerText = "Error: No Spotify history loaded to analyze yet.";
+        appendChatMessage("System", "Error: No Spotify history loaded to analyze yet.");
         return;
     }
 
     runBtn.disabled = true;
     runBtn.innerText = "Processing...";
-    outputTerminal.innerText = "Connecting to model endpoint...\nFormulating prompt based on your last 50 actual stream logs...";
+    
+    appendChatMessage("System", "Connecting to model endpoint...\nFormulating scrobble summary for batch hydration...");
 
-    const tracksSummary = rawTracksCache.map((item, idx) => {
+    const tracksSummary = rawTracksCache.map((item) => {
         const track = item.track;
         const genres = globalArtistGenres[track?.artists[0]?.id] || [];
-        return `${idx + 1}. "${track.name}" by ${track.artists.map(a=>a.name).join(', ')} [Popularity: ${track.popularity}%, Year: ${track.album.release_date?.slice(0,4)}, Genres: ${genres.join('/')}]`;
+        return `ID: "${track.id}" | Name: "${track.name}" by ${track.artists.map(a=>a.name).join(', ')} [Popularity: ${track.popularity}%, Year: ${track.album.release_date?.slice(0,4)}, Genres: ${genres.join('/')}]`;
     }).join('\n');
 
-    const promptText = `Analyze my last 50 recently played tracks on Spotify. Audit this actual data:\n\n${tracksSummary}\n\nTasks:\n1. Formulate a 2-paragraph musical evaluation profiling my style, tempo trends, and artist overlaps.\n2. Suggest 5 accurate songs for my current profile, explaining why they align with this sequence.\n3. Make note of any sudden style transitions between consecutive entries. Speak as a highly professional music critic. Keep response concise, readable, and authentic.`;
+    // Prompt instructions ensuring standard JSON output fallback
+    const promptText = `Analyze my last 50 recently played tracks on Spotify:
+
+${tracksSummary}
+
+Tasks:
+Evaluate the actual music styles and metadata to estimate the accurate Tempo (BPM), Danceability (0.0 to 1.0), Energy (0.0 to 1.0), Happiness/Valence (0.0 to 1.0), and Camelot/Standard Musical Key for each track. 
+
+Respond ONLY with a valid, parseable JSON object. Do not include markdown formatting, explanations, or code blocks. The response must follow this exact JSON structure:
+{
+  "tracks": [
+    {
+      "id": "track_id_string",
+      "tempo": 124,
+      "key": "A Minor",
+      "danceability": 0.72,
+      "energy": 0.81,
+      "valence": 0.65
+    }
+  ],
+  "profile_summary": "A 3-sentence summary analysis of my listening characteristics and vibe.",
+  "gaps_analysis": "A 2-sentence critique regarding my playback intervals."
+}`;
 
     try {
         let responseText = "";
@@ -784,9 +836,10 @@ async function runAIAuditor() {
                 body: JSON.stringify({
                     model: "gpt-4o-mini",
                     messages: [
-                        { role: "system", content: "You are StreamPulse AI, an expert music analyst and DJ auditing scrobble logs." },
+                        { role: "system", content: "You are StreamPulse AI, a precise music analyzer returning JSON structured payloads." },
                         { role: "user", content: promptText }
-                    ]
+                    ],
+                    response_format: { type: "json_object" }
                 })
             });
 
@@ -796,7 +849,7 @@ async function runAIAuditor() {
             }
 
             const resData = await response.json();
-            responseText = resData.choices[0]?.message?.content || "No text generated.";
+            responseText = resData.choices[0]?.message?.content || "{}";
         } else if (provider === 'gemini') {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
                 method: 'POST',
@@ -806,7 +859,10 @@ async function runAIAuditor() {
                 body: JSON.stringify({
                     contents: [{
                         parts: [{ text: promptText }]
-                    }]
+                    }],
+                    generationConfig: {
+                        responseMimeType: "application/json"
+                    }
                 })
             });
 
@@ -816,16 +872,141 @@ async function runAIAuditor() {
             }
 
             const resData = await response.json();
-            responseText = resData.candidates?.[0]?.content?.parts?.[0]?.text || "No text generated.";
+            responseText = resData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
         }
 
-        outputTerminal.innerText = responseText;
+        // Parse and hydrate UI indicators with calculated AI properties
+        const parsedData = JSON.parse(responseText);
+        
+        if (parsedData.tracks && Array.isArray(parsedData.tracks)) {
+            let tempoSum = 0;
+            let energySum = 0;
+            let parsedCount = 0;
+
+            parsedData.tracks.forEach(trackItem => {
+                if (trackItem.id) {
+                    aiHydratedMetrics[trackItem.id] = {
+                        tempo: trackItem.tempo || 120,
+                        key: trackItem.key || "C Major",
+                        danceability: trackItem.danceability || 0.5,
+                        energy: trackItem.energy || 0.5,
+                        valence: trackItem.valence || 0.5
+                    };
+                    tempoSum += trackItem.tempo || 120;
+                    energySum += trackItem.energy || 0.5;
+                    parsedCount++;
+                }
+            });
+
+            // Hydrate metrics display grid with calculated AI outputs
+            if (parsedCount > 0) {
+                const avgTempo = Math.round(tempoSum / parsedCount);
+                const avgEnergy = Math.round((energySum / parsedCount) * 100);
+
+                document.getElementById('label-stat-energy').innerText = "Average Energy";
+                document.getElementById('stat-popularity').innerText = `${avgEnergy}%`;
+
+                document.getElementById('label-stat-tempo').innerText = "Average Tempo";
+                document.getElementById('stat-topgenre').innerText = `${avgTempo} BPM`;
+
+                document.getElementById('hydration-badge').innerText = "AI HYDRATED ENGINE ACTIVE";
+                document.getElementById('hydration-badge').className = "text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse";
+            }
+
+            // Repopulate cards with metrics indicators
+            processFactualMetrics(rawTracksCache);
+
+            appendChatMessage("StreamPulse AI", `Metrics Hydrated Successfully!\n\n${parsedData.profile_summary}\n\n${parsedData.gaps_analysis}`);
+        } else {
+            throw new Error("Invalid track array format returned by model.");
+        }
+
     } catch (err) {
-        outputTerminal.innerText = `API Fetch Error: ${err.message}\n\nPlease check your key and billing limits on your developer panel.`;
+        appendChatMessage("System", `Error processing AI audit: ${err.message}. Please check your credentials.`);
     } finally {
         runBtn.disabled = false;
         runBtn.innerText = "Run Analysis";
     }
+}
+
+// Send custom chat message with scrobble log history loaded as context
+async function sendChatMessage() {
+    const inputEl = document.getElementById('chat-input');
+    const message = inputEl.value.trim();
+    const provider = localStorage.getItem('ai_provider') || 'openai';
+    const key = localStorage.getItem('ai_key');
+
+    if (!message) return;
+    if (!key) {
+        appendChatMessage("System", "Error: Save an API key first to send chat prompts.");
+        return;
+    }
+
+    appendChatMessage("User", message);
+    inputEl.value = '';
+
+    const tracksSummary = rawTracksCache.slice(0, 15).map((item) => {
+        return `"${item.track.name}" by ${item.track.artists.map(a=>a.name).join(', ')}`;
+    }).join(', ');
+
+    const promptText = `The user is messaging you regarding their Spotify scrobbles history. Under the hood, here are their last 15 tracks played: ${tracksSummary}. Respond to this question as their StreamPulse music DJ/Analyst: "${message}"`;
+
+    try {
+        let aiResponse = "No response generated.";
+
+        if (provider === 'openai') {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + key,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: "You are StreamPulse AI, a helpful, cool, and highly professional music DJ analyst conversing with the user." },
+                        { role: "user", content: promptText }
+                    ]
+                })
+            });
+            if (response.ok) {
+                const resData = await response.json();
+                aiResponse = resData.choices[0]?.message?.content || aiResponse;
+            } else {
+                throw new Error("OpenAI API call failed.");
+            }
+        } else if (provider === 'gemini') {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
+            });
+            if (response.ok) {
+                const resData = await response.json();
+                aiResponse = resData.candidates?.[0]?.content?.parts?.[0]?.text || aiResponse;
+            } else {
+                throw new Error("Gemini API call failed.");
+            }
+        }
+
+        appendChatMessage("StreamPulse AI", aiResponse);
+    } catch (err) {
+        appendChatMessage("System", `Connection failed: ${err.message}`);
+    }
+}
+
+function appendChatMessage(sender, text) {
+    const chatThread = document.getElementById('chat-thread');
+    const msgNode = document.createElement('div');
+    msgNode.className = "p-3 rounded-xl border leading-relaxed " + 
+        (sender === 'User' ? 'bg-zinc-850/50 border-zinc-700 text-zinc-200 ml-4' : 
+         sender === 'System' ? 'bg-red-950/20 border-red-900/40 text-red-400' : 'bg-zinc-900/60 border-zinc-800 text-zinc-300 mr-4');
+         
+    msgNode.innerHTML = `<strong>[${sender}]</strong>: ${text.replace(/\n/g, '<br>')}`;
+    chatThread.appendChild(msgNode);
+    chatThread.scrollTop = chatThread.scrollHeight;
 }
 
 async function generateVibePlaylist(moodProfile) {
