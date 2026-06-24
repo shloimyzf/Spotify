@@ -16,7 +16,6 @@
         .spotify-bg:hover { background-color: #1ed760; }
         .card-bg { background-color: #0c0c0e; border: 1px solid #1f1f23; }
         .card-bg:hover { border-color: #2d2d34; }
-        
         /* Custom scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #09090b; }
@@ -33,7 +32,7 @@
     <!-- Night Shift Blend Overlay -->
     <div id="night-shift-overlay" class="fixed inset-0 bg-amber-500/5 pointer-events-none z-50 mix-blend-multiply transition-opacity duration-300 opacity-0"></div>
 
-    <!-- Premium Background Gradient Overlay -->
+    <!-- Background Gradient Layer -->
     <div class="fixed inset-0 bg-gradient-to-b from-zinc-950 via-zinc-900 to-black -z-10"></div>
 
     <!-- Header -->
@@ -76,49 +75,83 @@
         <!-- Dashboard View -->
         <div id="dashboard-view" class="w-full hidden space-y-6">
             
-            <!-- Realtime Spotify Active Playback Widget -->
-            <div id="live-playback-widget" class="w-full bg-zinc-950/90 border border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_15px_rgba(16,185,129,0.05)] hidden">
-                <div class="flex items-center space-x-3 w-full sm:w-auto">
-                    <div class="relative flex-shrink-0">
-                        <img id="live-art" class="w-12 h-12 rounded-lg object-cover bg-zinc-900" src="" alt="Album Art">
-                        <span class="absolute -top-1 -left-1 flex h-3.5 w-3.5">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
-                        </span>
-                    </div>
-                    <div class="min-w-0">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-extrabold uppercase tracking-widest">Live Now</span>
-                            <span id="live-device" class="text-[10px] text-zinc-500 truncate">Device</span>
+            <!-- Realtime Spotify Active Playback Widget (Contextual HUD) -->
+            <div id="live-playback-widget" class="w-full bg-zinc-950/95 border border-emerald-500/20 rounded-2xl p-5 flex flex-col space-y-4 shadow-[0_0_20px_rgba(16,185,129,0.05)] hidden">
+                
+                <!-- Track Meta Row -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <div class="relative flex-shrink-0">
+                            <img id="live-art" class="w-14 h-14 rounded-xl object-cover bg-zinc-900" src="" alt="Album Art">
+                            <span class="absolute -top-1 -left-1 flex h-3.5 w-3.5">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                            </span>
                         </div>
-                        <p id="live-title" class="font-bold text-white text-sm truncate mt-0.5">Song Title</p>
-                        <p id="live-artist" class="text-xs text-zinc-400 truncate">Artist Name</p>
+                        <div class="min-w-0">
+                            <p id="live-title" class="font-bold text-white text-base truncate mt-0.5">Song Title</p>
+                            <p id="live-artist" class="text-xs text-zinc-400 truncate">Artist Name</p>
+                        </div>
+                    </div>
+
+                    <!-- Factual Metadata Tracker Grid -->
+                    <div class="grid grid-cols-3 gap-2 bg-zinc-900/40 border border-zinc-850 p-2 rounded-xl text-center text-[10px] w-full sm:w-auto flex-shrink-0 min-w-[240px]">
+                        <div>
+                            <span class="text-zinc-500 block uppercase font-bold text-[8px] tracking-wider">Release Year</span>
+                            <span id="live-stats-year" class="text-zinc-200 font-semibold mt-0.5 inline-block">--</span>
+                        </div>
+                        <div>
+                            <span class="text-zinc-500 block uppercase font-bold text-[8px] tracking-wider">Popularity</span>
+                            <span id="live-stats-popularity" class="text-zinc-200 font-semibold mt-0.5 inline-block">--</span>
+                        </div>
+                        <div>
+                            <span class="text-zinc-500 block uppercase font-bold text-[8px] tracking-wider">Genres</span>
+                            <span id="live-stats-genres" class="text-emerald-400 font-semibold mt-0.5 inline-block truncate max-w-[70px]">--</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Progress Bar & Continuous Time Status -->
-                <div class="w-full sm:max-w-xs flex flex-col items-end">
-                    <span id="live-time" class="text-[10px] text-zinc-400 font-mono">0:00 / 0:00</span>
-                    <div class="w-full bg-zinc-900 h-1.5 rounded-full mt-1.5 overflow-hidden border border-zinc-800">
+                <!-- Timer and Progress Ticker Bar -->
+                <div class="w-full flex items-center justify-between space-x-4">
+                    <div class="flex-1 bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800">
                         <div id="live-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-1000 linear"></div>
                     </div>
+                    <span id="live-time" class="text-[10px] text-zinc-400 font-mono flex-shrink-0">0:00 / 0:00</span>
                 </div>
 
-                <!-- Hardware controls routed natively to Spotify App -->
-                <div class="flex items-center space-x-3 flex-shrink-0">
-                    <button onclick="skipLivePrevious()" class="p-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white rounded-full transition active:scale-90" title="Previous Track">
-                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg>
-                    </button>
-                    <button onclick="toggleLivePlayback()" class="p-2.5 bg-white text-black hover:bg-zinc-200 rounded-full transition active:scale-90" title="Play/Pause">
-                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" id="live-play-pause-icon"><path d="M8 5v14l11-7z"/></svg>
-                    </button>
-                    <button onclick="skipLiveNext()" class="p-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white rounded-full transition active:scale-90" title="Next Track">
-                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
-                    </button>
+                <!-- AI Liner Notes & Live Story Expansion Pane -->
+                <div id="live-ai-notes-text" class="hidden text-xs bg-zinc-900/40 border border-zinc-850/80 rounded-xl p-3 leading-relaxed text-zinc-300 font-mono">
+                    <!-- Loaded dynamically via getLiveAILinerNotes() -->
+                </div>
+
+                <!-- Action Button Cluster (Playback, Loop Breaker, and AI notes trigger) -->
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-850 pt-3">
+                    <div class="flex items-center space-x-1">
+                        <button onclick="skipLivePrevious()" class="p-2 bg-zinc-900 border border-zinc-850 hover:border-zinc-700 text-white rounded-lg transition active:scale-95">
+                            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg>
+                        </button>
+                        <button onclick="toggleLivePlayback()" class="p-2 bg-white text-black hover:bg-zinc-200 rounded-lg transition active:scale-95">
+                            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" id="live-play-pause-icon"><path d="M8 5v14l11-7z"/></svg>
+                        </button>
+                        <button onclick="skipLiveNext()" class="p-2 bg-zinc-900 border border-zinc-850 hover:border-zinc-700 text-white rounded-lg transition active:scale-95">
+                            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <!-- AI Liner Notes Trigger -->
+                        <button id="live-ai-notes-btn" onclick="getLiveAILinerNotes()" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[10px] text-zinc-300 font-bold px-3.5 py-2 rounded-lg transition flex items-center space-x-1.5">
+                            <span>📖 AI Liner Notes</span>
+                        </button>
+                        <!-- Loop Breaker Trigger -->
+                        <button onclick="breakArtistLoop()" class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-[10px] font-bold px-3.5 py-2 rounded-lg transition flex items-center space-x-1.5" title="Break the current artist loop and force queue variety">
+                            <span>⚡ Loop Breaker</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Navigation Switcher -->
+            <!-- Navigation Tab Switcher -->
             <nav class="flex space-x-1 bg-zinc-900/60 p-1 rounded-xl w-full max-w-md mx-auto border border-zinc-800/60">
                 <button onclick="switchTab('hub')" id="tab-btn-hub" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white bg-zinc-800">
                     📊 Listening Logs
@@ -200,7 +233,7 @@
                 <div id="tracks-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
             </div>
 
-            <!-- TAB 3: AI ASSISTANT LOUNGE (Redesigned as an interactive Music Archivist Chat) -->
+            <!-- TAB 3: AI ASSISTANT -->
             <div id="tab-content-ai" class="w-full hidden grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 
                 <!-- Left panel: config options -->
@@ -228,7 +261,7 @@
                         <button onclick="saveAIConfig()" class="bg-zinc-800 hover:bg-zinc-750 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition">
                             Save Config
                         </button>
-                        <button onclick="generateAIPrivacyClear()" class="text-zinc-500 hover:text-zinc-300 text-xs px-2 py-2.5 transition">
+                        <button onclick="generateAIPrivacyClear()" class="text-zinc-500 hover:text-zinc-300 text-xs px-2 py-2 transition">
                             Clear Token
                         </button>
                     </div>
