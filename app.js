@@ -49,14 +49,14 @@ let previousTrackArtist = "";
 let currentPlayingTrackId = "";
 let currentPlayingTrackName = "";
 let currentPlayingArtistName = "";
+let liveTrackObject = null; // Caches real playing track parameters for seamless inspection overrides
 
 // Dynamic Taxonomy Filters State
 let selectedGenreFilter = "";
 
-// Canvas Animation context states for Midnight/ambient visualizations
+// Canvas Animation context states for Midnight/ambient plasma visualizations
 let canvas, ctx;
 let visualizerAnimationId = null;
-let waves = [];
 let particles = [];
 let activeVisualizerBPM = 120;
 let activeVisualizerValence = 0.5;
@@ -68,6 +68,8 @@ let aiInspectionCache = {};
 let deferredPrompt;
 
 function showUIStatus(msg, isError = true) {
+    const errorBanner = document.getElementById('error-banner');
+    const errorMessage = document.getElementById('error-message');
     errorMessage.innerText = msg;
     if (isError) {
         errorBanner.classList.remove('border-zinc-800', 'text-zinc-300');
@@ -168,14 +170,13 @@ async function init() {
     const token = await getValidToken();
     if (token) { 
         showDashboard(token); 
-        fetchSpotifyProfile(token); // Load user profile details
+        fetchSpotifyProfile(token); 
         startLivePlaybackPolling(); 
     } else { 
         logout();
     }
 }
 
-// Spotify profile sync to make app integrated as one
 async function fetchSpotifyProfile(token) {
     try {
         const response = await fetch('https://api.spotify.com/v1/me', {
@@ -347,6 +348,7 @@ function showLivePlaybackWidget(data) {
         currentPlayingTrackId = track.id;
         currentPlayingTrackName = track.name;
         currentPlayingArtistName = currentArtist;
+        liveTrackObject = track; // Store active live target track globally
         
         // Reset dynamic HUD elements on track changes
         document.getElementById('live-ai-notes-text').classList.add('hidden');
@@ -367,7 +369,7 @@ function showLivePlaybackWidget(data) {
 
     titleEl.innerText = track.name;
     artistEl.innerText = track.artists.map(a => a.name).join(', ');
-    artEl.src = track.album?.images[2]?.url || track.album?.images[1]?.url || 'https://via.placeholder.com/80';
+    artEl.src = track.album?.images[2]?.url || track.album?.images[0]?.url || 'https://via.placeholder.com/80';
     deviceEl.innerText = `Connected: ${data.device?.name || 'Unknown Device'}`;
 
     currentPlaybackProgressMs = data.progress_ms || 0;
@@ -918,12 +920,22 @@ function filterTracks() {
     trackCount.innerText = `${visibleCount} match${visibleCount !== 1 ? 'es' : ''}`;
 }
 
-// On-demand single track analysis (Now with slide-over panel design for mobile fluidity)
+// On-demand single track analysis & similar track generation (Fills left column HUD)
 async function inspectTrackDetails(trackId) {
-    const matchedItem = rawTracksCache.find(item => item.track?.id === trackId);
-    if (!matchedItem) return;
+    let track = null;
 
-    const track = matchedItem.track;
+    // Fix: Inspect the live-playing song instantly even if it's not yet in the scrobble logs cache
+    if (liveTrackObject && liveTrackObject.id === trackId) {
+        track = liveTrackObject;
+    } else {
+        const matchedItem = rawTracksCache.find(item => item.track?.id === trackId);
+        if (matchedItem) {
+            track = matchedItem.track;
+        }
+    }
+
+    if (!track) return;
+
     const mainArtistId = track.artists[0]?.id;
 
     // Slide-over reveal transition
@@ -936,12 +948,19 @@ async function inspectTrackDetails(trackId) {
     inspectAiContent.classList.add('hidden');
     inspectBpm.classList.add('hidden');
     
+    // Clear and hide Spotify recommended seeds layout while loading
     document.getElementById('inspect-similar-box').classList.add('hidden');
 
-    inspectArt.src = track.album?.images[2]?.url || 'https://via.placeholder.com/80';
+    // Fix: Dynamic album artwork checks prevent broken thumbnails
+    const albumArtUrl = (track.album?.images && track.album.images.length > 0) 
+        ? (track.album.images[2]?.url || track.album.images[0]?.url) 
+        : 'https://via.placeholder.com/80';
+
+    inspectArt.src = albumArtUrl;
     inspectTitle.innerText = track.name;
     inspectArtist.innerText = track.artists.map(a => a.name).join(', ');
 
+    // Repaint Genre Taxonomy index list in selected track inspector HUD
     const genresBox = document.getElementById('inspect-genres-box');
     const genresCloud = document.getElementById('inspect-genres-cloud');
     const genres = globalArtistGenres[mainArtistId] || [];
@@ -952,8 +971,10 @@ async function inspectTrackDetails(trackId) {
         genresBox.classList.add('hidden');
     }
 
+    // Load Spotify native recommendations seeds alongside AI data
     getFactualSpotifyRecommendations(trackId);
 
+    // Read AI cache to prevent spending tokens twice
     const cachedData = aiInspectionCache[trackId];
     if (cachedData) {
         renderInspectorAIUI(cachedData);
@@ -965,10 +986,11 @@ async function inspectTrackDetails(trackId) {
         return;
     }
 
+    // Begin background hydration securely using stored AI keys
     aiInspectionCache[trackId] = "loading";
     const provider = localStorage.getItem('ai_provider') || 'openai';
 
-    // Highlight: Rigid system prompt forcing the AI to maintain a legendary musicologist persona and outlaw disclaimers
+    // Rigid system prompt forcing the AI to maintain a legendary musicologist persona and outlaw disclaimers
     const promptText = `You are StreamPulse AI, a legendary vinyl collector, musicologist, and late-night DJ. Conduct a deep track insight analysis for: "${track.name}" by ${track.artists.map(a => a.name).join(', ')} (released: ${track.album.release_date}, album: "${track.album.name}").
 
     Strict Persona Guidelines:
@@ -1094,6 +1116,24 @@ async function handleProgrammaticQueue(event, trackUri) {
     }
 }
 
+// Tap backup for queuing
+async function handleQuickQueue(event, trackUri) {
+    event.stopPropagation();
+    const btn = event.currentTarget;
+    btn.innerHTML = `<span class="text-[9px] text-zinc-500 animate-pulse font-extrabold">...</span>`;
+    
+    const success = await addToSpotifyQueue(trackUri);
+    if (success) {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-emerald-400" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+    } else {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-red-500" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
+        showUIStatus("To add to queue, first open your Spotify app and play a song to establish an active player session.", true);
+    }
+    setTimeout(() => {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 fill-current text-zinc-400" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`;
+    }, 3000);
+}
+
 function renderInspectorAIUI(parsed) {
     inspectBpm.innerText = `${parsed.bpm || '--'} BPM`;
     inspectBpm.classList.remove('hidden');
@@ -1133,11 +1173,14 @@ function generateAIPrivacyClear() {
     showUIStatus("AI credentials cleared from local environment.", false);
 }
 
-// FULL-SCREEN IMMERSIVE VISUALIZER ANIMATION CODE
+// FULL-SCREEN IMMERSIVE VISUALIZER ANIMATION CODE (Morphing plasma cloud visual simulation)
 function openImmersiveVisualizer() {
     const overlay = document.getElementById('fullscreen-viz');
     overlay.classList.remove('translate-y-full', 'pointer-events-none', 'opacity-0');
     overlay.classList.add('translate-y-0', 'opacity-100');
+
+    // Prevent main body scrolling bleed-through
+    document.body.classList.add('overflow-hidden');
 
     // Populate metadata indicators instantly
     document.getElementById('viz-art').src = document.getElementById('live-art').src;
@@ -1162,6 +1205,9 @@ function closeImmersiveVisualizer() {
     const overlay = document.getElementById('fullscreen-viz');
     overlay.classList.remove('translate-y-0', 'opacity-100');
     overlay.classList.add('translate-y-full', 'pointer-events-none', 'opacity-0');
+
+    // Restore standard scrolling bounds
+    document.body.classList.remove('overflow-hidden');
 
     stopImmersiveVisualizerRender();
 }
@@ -1203,21 +1249,12 @@ function startImmersiveVisualizerRender() {
     canvas.width = canvas.parentElement.clientWidth;
     canvas.height = canvas.parentElement.clientHeight;
 
-    // Define sine wave structures
-    waves = [
-        { y: canvas.height * 0.5, length: 0.005, amplitude: 40, frequency: 0.02, color: 'rgba(29, 185, 84, 0.15)' },
-        { y: canvas.height * 0.5, length: 0.01, amplitude: 20, frequency: 0.04, color: 'rgba(16, 185, 129, 0.1)' },
-        { y: canvas.height * 0.5, length: 0.002, amplitude: 60, frequency: 0.01, color: 'rgba(52, 211, 153, 0.05)' }
+    // Define three distinct floating morphing color blob metaballs for high visual immersion
+    particles = [
+        { x: canvas.width * 0.3, y: canvas.height * 0.4, r: 180, speedX: 0.8, speedY: 0.6, color: 'rgba(29, 185, 84, 0.22)' },
+        { x: canvas.width * 0.7, y: canvas.height * 0.6, r: 240, speedX: -0.5, speedY: 0.9, color: 'rgba(99, 102, 241, 0.16)' },
+        { x: canvas.width * 0.5, y: canvas.height * 0.3, r: 150, speedX: 0.4, speedY: -0.7, color: 'rgba(245, 158, 11, 0.12)' }
     ];
-
-    // Define particle array structures
-    particles = Array(40).fill(0).map(() => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 2 + 1,
-        vX: Math.random() * 0.5 - 0.25,
-        vY: Math.random() * -0.5 - 0.1
-    }));
 
     animateVisualizer();
 }
@@ -1234,46 +1271,27 @@ function animateVisualizer() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Speed modifiers synced directly to active track BPM
+    // Sync morphing velocities directly to track playback speed (BPM)
     const bpmSpeedMultiplier = currentPlaybackIsPlaying ? (activeVisualizerBPM / 120) : 0.15;
 
-    // Draw multi-layered ambient color morphing sine waves
-    waves.forEach(wave => {
-        ctx.beginPath();
-        ctx.moveTo(0, wave.y);
-
-        for (let i = 0; i < canvas.width; i++) {
-            const waveY = wave.y + Math.sin(i * wave.length + wave.frequency) * wave.amplitude;
-            ctx.lineTo(i, waveY);
-        }
-
-        ctx.strokeStyle = wave.color;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Increment wave phase frequency synced to BPM speed
-        wave.frequency += 0.01 * bpmSpeedMultiplier;
-    });
-
-    // Draw and update ambient particles
+    // Update and draw glowing metaballs
     particles.forEach(p => {
+        p.x += p.speedX * bpmSpeedMultiplier;
+        p.y += p.speedY * bpmSpeedMultiplier;
+
+        // Bounce bounds
+        if (p.x - p.r < 0 || p.x + p.r > canvas.width) p.speedX *= -1;
+        if (p.y - p.r < 0 || p.y + p.r > canvas.height) p.speedY *= -1;
+
+        // Draw radial glowing blob gradient
+        const gradient = ctx.createRadialGradient(p.x, p.y, 5, p.x, p.y, p.r);
+        gradient.addColorStop(0, p.color);
+        gradient.addColorStop(1, 'rgba(5, 5, 7, 0)');
+
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
         ctx.fill();
-
-        // Apply physical updates mapped to current tempo playback state
-        p.x += p.vX * bpmSpeedMultiplier;
-        p.y += p.vY * bpmSpeedMultiplier;
-
-        // Recycle boundaries
-        if (p.y < 0) {
-            p.y = canvas.height;
-            p.x = Math.random() * canvas.width;
-        }
-        if (p.x < 0 || p.x > canvas.width) {
-            p.vX *= -1;
-        }
     });
 }
 
