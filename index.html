@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sessions — a listening log</title>
+<meta name="description" content="A private, honest log of what you've actually been playing.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14110D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="night-shift-overlay" aria-hidden="true"></div>
+
+<div class="deck-glow deck-glow--a" aria-hidden="true"></div>
+<div class="deck-glow deck-glow--b" aria-hidden="true"></div>
+
+<header class="masthead">
+  <div class="masthead__title">
+    <h1>Sessions</h1>
+    <p class="masthead__kicker">a listening log, not a highlight reel</p>
+  </div>
+
+  <div class="masthead__controls">
+    <div id="profile-badge" class="profile-badge hidden">
+      <img id="profile-img" alt="">
+      <span id="profile-name">—</span>
+    </div>
+    <button id="night-shift-btn" class="icon-btn" onclick="toggleNightShift()" aria-pressed="false" title="Dim for late-night reading">
+      dim
+    </button>
+    <button id="ai-config-btn" class="icon-btn" onclick="toggleConfigDrawer()" title="Set up AI notes">
+      AI setup
+    </button>
+    <button id="logout-btn" class="icon-btn icon-btn--ghost hidden" onclick="logout()">
+      disconnect
+    </button>
+  </div>
+</header>
+
+<!-- AI config drawer -->
+<aside id="config-drawer" class="drawer" aria-hidden="true">
+  <div class="drawer__head">
+    <div>
+      <h2>AI notes</h2>
+      <p class="drawer__sub">Bring your own key. It stays on this device.</p>
+    </div>
+    <button class="drawer__close" onclick="toggleConfigDrawer()" aria-label="Close">&times;</button>
+  </div>
+  <div class="drawer__body">
+    <label class="field">
+      <span>Provider</span>
+      <select id="ai-provider">
+        <option value="openai">OpenAI · gpt-4o-mini</option>
+        <option value="gemini">Google · Gemini 2.5 Flash</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>API key</span>
+      <input id="ai-key" type="password" placeholder="sk-… or AIzaSy…" autocomplete="off">
+    </label>
+    <p class="field-note">Used only to fetch a few lines of trivia and a mix tip per track you open. Nothing is sent anywhere else.</p>
+    <div class="drawer__actions">
+      <button class="btn btn--primary" onclick="saveAIConfig()">Save key</button>
+      <button class="btn btn--quiet" onclick="clearAIConfig()">Clear</button>
+    </div>
+  </div>
+</aside>
+<div id="drawer-scrim" class="scrim" onclick="toggleConfigDrawer()"></div>
+
+<main>
+
+  <div id="status-banner" class="status-banner hidden" role="status">
+    <p id="status-message"></p>
+  </div>
+
+  <!-- Landing -->
+  <section id="landing-view" class="landing hidden">
+    <p class="landing__eyebrow">no dashboards, no vanity charts</p>
+    <h2>What did you actually listen to?</h2>
+    <p class="landing__body">
+      Sessions reads your recent plays straight from Spotify and lays them out as a log:
+      what came on, in what order, and how long the gaps between songs really were.
+      Open anything for a bit more context, or leave loop-protection on so autoplay
+      doesn't quietly repeat the same three artists all night.
+    </p>
+    <button class="btn btn--spotify" onclick="loginWithSpotify()">
+      Connect your Spotify
+    </button>
+  </section>
+
+  <!-- Dashboard -->
+  <div id="dashboard-view" class="dashboard hidden">
+
+    <!-- LEFT: the deck -->
+    <section class="deck" aria-label="Now playing">
+      <div id="live-widget" class="deck__panel hidden">
+        <div class="deck__now">
+          <button class="deck__art" onclick="openVisualizer()" title="Open visualizer" id="live-art-btn">
+            <img id="live-art" alt="">
+            <span class="deck__art-ring" id="vinyl-ring" aria-hidden="true"></span>
+          </button>
+          <div class="deck__meta">
+            <p class="deck__live-tag"><span class="dot"></span>playing now</p>
+            <h3 id="live-title">—</h3>
+            <p id="live-artist" class="deck__artist">—</p>
+            <p id="live-device" class="deck__device">—</p>
+          </div>
+        </div>
+
+        <div class="deck__progress">
+          <div class="deck__bar"><div id="live-progress-bar"></div></div>
+          <span id="live-time" class="deck__time">0:00 / 0:00</span>
+        </div>
+
+        <div class="deck__row">
+          <div class="transport">
+            <button class="transport__btn" onclick="skipPrevious()" aria-label="Previous">
+              <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--main" onclick="togglePlayback()" aria-label="Play or pause">
+              <svg viewBox="0 0 24 24" id="live-play-icon"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button class="transport__btn" onclick="skipNext()" aria-label="Next">
+              <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
+            </button>
+          </div>
+
+          <button id="loop-protect-toggle" class="pill-toggle" onclick="toggleLoopProtection()" aria-pressed="false">
+            loop guard: <strong>off</strong>
+          </button>
+        </div>
+
+        <div class="deck__stats">
+          <div><span>popularity</span><strong id="live-stat-pop">—</strong></div>
+          <div><span>released</span><strong id="live-stat-year">—</strong></div>
+          <div><span>genre</span><strong id="live-stat-genre">—</strong></div>
+        </div>
+      </div>
+
+      <div id="live-empty" class="deck__panel deck__panel--empty">
+        <p>Nothing playing right now.</p>
+        <p class="deck__panel--empty-sub">Start something on Spotify and it'll show up here within a few seconds.</p>
+      </div>
+
+      <div class="mixtapes">
+        <h3>Quick playlists</h3>
+        <p class="mixtapes__sub">Pulled from your last 50 plays, sent straight to your Spotify library.</p>
+        <div class="mixtapes__grid">
+          <button onclick="generateVibePlaylist('energy')" class="mixtape-btn">
+            <span class="mixtape-btn__label">High Energy</span>
+            <span class="mixtape-btn__hint">upbeat, popular</span>
+          </button>
+          <button onclick="generateVibePlaylist('indie')" class="mixtape-btn">
+            <span class="mixtape-btn__label">Indie &amp; Under-the-radar</span>
+            <span class="mixtape-btn__hint">lower popularity score</span>
+          </button>
+          <button onclick="generateVibePlaylist('mellow')" class="mixtape-btn">
+            <span class="mixtape-btn__label">Mellow</span>
+            <span class="mixtape-btn__hint">ambient, lo-fi, chill</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: the log -->
+    <section class="log" aria-label="Listening log">
+      <div class="stat-strip">
+        <div class="stat-strip__item">
+          <span>runtime logged</span>
+          <strong id="stat-runtime">—</strong>
+        </div>
+        <div class="stat-strip__item">
+          <span>underground score</span>
+          <strong id="stat-indie">—</strong>
+        </div>
+        <div class="stat-strip__item">
+          <span>genres touched</span>
+          <strong id="stat-genres-count">—</strong>
+        </div>
+        <div class="stat-strip__item">
+          <span>mood read</span>
+          <strong id="stat-haze">—</strong>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <input id="search-input" class="search" type="search" placeholder="Search this log…" oninput="filterTracks()">
+        <div id="genre-filter-container" class="genre-pills"></div>
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <button class="tabs__btn is-active" id="tab-btn-timeline" role="tab" onclick="switchTab('timeline')">Timeline</button>
+        <button class="tabs__btn" id="tab-btn-tracks" role="tab" onclick="switchTab('tracks')">All tracks <span id="track-count"></span></button>
+      </nav>
+
+      <div id="tab-timeline" class="tab-panel">
+        <ol id="timeline-list" class="timeline"></ol>
+      </div>
+
+      <div id="tab-tracks" class="tab-panel hidden">
+        <ul id="tracks-list" class="track-list"></ul>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- Inspector drawer -->
+<aside id="inspector" class="drawer drawer--right" aria-hidden="true">
+  <div class="drawer__head">
+    <h2>Track notes</h2>
+    <button class="drawer__close" onclick="closeInspector()" aria-label="Close">&times;</button>
+  </div>
+  <div class="drawer__body">
+    <div class="inspect-head">
+      <img id="inspect-art" alt="">
+      <div>
+        <p id="inspect-title" class="inspect-head__title">—</p>
+        <p id="inspect-artist" class="inspect-head__artist">—</p>
+        <span id="inspect-bpm" class="tag tag--accent hidden">— BPM</span>
+      </div>
+    </div>
+
+    <div id="inspect-genres-box" class="hidden">
+      <p class="drawer__label">genres</p>
+      <div id="inspect-genres-cloud" class="genre-pills genre-pills--static"></div>
+    </div>
+
+    <div id="inspect-ai-empty" class="ai-empty">
+      <p>Add an API key in AI setup to pull trivia and a mix tip for this track.</p>
+      <button class="btn btn--quiet" onclick="toggleConfigDrawer()">Open AI setup</button>
+    </div>
+
+    <div id="inspect-ai-loading" class="ai-loading hidden">
+      <p>Reading the liner notes…</p>
+    </div>
+
+    <div id="inspect-ai-content" class="ai-content hidden">
+      <div class="ai-grid">
+        <div><span>key</span><strong id="inspect-key">—</strong></div>
+        <div><span>mood</span><strong id="inspect-vibe">—</strong></div>
+      </div>
+      <div class="ai-block">
+        <p class="drawer__label">trivia</p>
+        <p id="inspect-trivia">—</p>
+      </div>
+      <div class="ai-block">
+        <p class="drawer__label">mix tip</p>
+        <p id="inspect-mix">—</p>
+      </div>
+    </div>
+
+    <div id="inspect-similar-box" class="hidden">
+      <p class="drawer__label">similar, from Spotify</p>
+      <div id="inspect-similar-list" class="similar-list"></div>
+    </div>
+  </div>
+</aside>
+<div id="inspector-scrim" class="scrim" onclick="closeInspector()"></div>
+
+<!-- Fullscreen visualizer -->
+<div id="visualizer" class="visualizer" aria-hidden="true">
+  <canvas id="viz-canvas"></canvas>
+  <div class="visualizer__top">
+    <span class="deck__live-tag"><span class="dot"></span>ambient session</span>
+    <button class="drawer__close" onclick="closeVisualizer()" aria-label="Close">&times;</button>
+  </div>
+  <div class="visualizer__center">
+    <img id="viz-art" alt="">
+    <h2 id="viz-title">—</h2>
+    <p id="viz-artist">—</p>
+    <p id="viz-bpm-key">—</p>
+    <p id="viz-commentary">Standby.</p>
+  </div>
+  <div class="visualizer__bottom">
+    <div class="deck__progress">
+      <div class="deck__bar"><div id="viz-progress-bar"></div></div>
+    </div>
+    <div class="transport">
+      <button class="transport__btn" onclick="skipPrevious()" aria-label="Previous">
+        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg>
+      </button>
+      <button class="transport__btn transport__btn--main" onclick="togglePlayback()" aria-label="Play or pause">
+        <svg viewBox="0 0 24 24" id="viz-play-icon"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="transport__btn" onclick="skipNext()" aria-label="Next">
+        <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
