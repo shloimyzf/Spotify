@@ -86,19 +86,34 @@ async function codeChallenge(verifier) {
 }
 
 async function loginWithSpotify() {
-  const verifier = randomString(128);
-  localStorage.setItem('sp_verifier', verifier);
-  const challenge = await codeChallenge(verifier);
+  try {
+    if (!window.isSecureContext || !window.crypto?.subtle) {
+      throw new Error(
+        'This page needs to be served over HTTPS (or localhost) for Spotify login to work — ' +
+        'opening it as a local file, or over plain http://, will not work.'
+      );
+    }
+    if (!CLIENT_ID || CLIENT_ID.includes('YOUR_')) {
+      throw new Error('Add your Spotify app\u2019s Client ID to CLIENT_ID in app.js first.');
+    }
 
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    redirect_uri: REDIRECT_URI,
-    code_challenge_method: 'S256',
-    code_challenge: challenge
-  });
-  window.location.href = `https://accounts.spotify.com/authorize?${params}`;
+    const verifier = randomString(128);
+    localStorage.setItem('sp_verifier', verifier);
+    const challenge = await codeChallenge(verifier);
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      redirect_uri: REDIRECT_URI,
+      code_challenge_method: 'S256',
+      code_challenge: challenge
+    });
+    window.location.href = `https://accounts.spotify.com/authorize?${params}`;
+  } catch (e) {
+    showStatus(e.message);
+    console.error('Spotify login failed:', e);
+  }
 }
 
 async function exchangeCodeForToken(code) {
